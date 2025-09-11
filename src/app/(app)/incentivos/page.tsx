@@ -52,7 +52,7 @@ export default function IncentivosPage() {
         <h1 className="text-headline-lg font-bold">Mis Incentivos</h1>
       </header>
 
-      <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6 pb-20 md:pb-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6 pb-24 md:pb-6">
         <div className="grid gap-4 md:grid-cols-2">
             <Card>
                 <CardHeader>

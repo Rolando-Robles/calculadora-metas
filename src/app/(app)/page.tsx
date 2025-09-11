@@ -48,7 +48,7 @@ export default function HomePage() {
         <h1 className="text-headline-lg font-bold">Inicio</h1>
       </header>
 
-      <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6 pb-20 md:pb-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6 pb-24 md:pb-6">
         <Tabs
           defaultValue="day"
           onValueChange={(value) => setTimeRange(value as TimeRange)}

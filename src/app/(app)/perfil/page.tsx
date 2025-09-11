@@ -42,7 +42,7 @@ export default function PerfilPage() {
         <h1 className="text-headline-lg font-bold">Mi Perfil</h1>
       </header>
 
-      <div className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6 pb-24 md:pb-6">
         <div className="mx-auto max-w-2xl space-y-8">
           <Card>
             <CardContent className="pt-6">

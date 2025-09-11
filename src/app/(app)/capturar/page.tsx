@@ -14,7 +14,7 @@ export default function CapturarPage() {
         <h1 className="text-3xl font-headline font-bold">Captura Rápida</h1>
       </header>
 
-      <div className="flex-1 overflow-auto p-4 md:p-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6 pb-24 md:pb-6">
         <div className="mx-auto max-w-md">
           <Card>
             <CardHeader>
