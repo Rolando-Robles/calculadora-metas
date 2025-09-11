@@ -55,16 +55,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 const isActive = pathname === item.href;
                 return (
                   <SidebarMenuItem key={item.href}>
-                    <Link href={item.href} passHref>
+                    <Link href={item.href}>
                       <SidebarMenuButton
                         asChild
                         isActive={isActive}
                         className={cn('h-12 justify-start text-base', isActive && 'font-bold')}
                       >
-                        <>
+                        <div>
                           <item.icon className="h-5 w-5" />
                           <span>{item.label}</span>
-                        </>
+                        </div>
                       </SidebarMenuButton>
                     </Link>
                   </SidebarMenuItem>
