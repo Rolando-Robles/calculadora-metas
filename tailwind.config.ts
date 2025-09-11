@@ -16,6 +16,11 @@ export default {
       },
     },
     extend: {
+      fontSize: {
+        'body-lg': '18px',
+        'headline-lg': ['30px', { lineHeight: '36px', fontWeight: '700' }],
+        'headline-xl': ['32px', { lineHeight: '40px', fontWeight: '700' }],
+      },
       fontFamily: {
         body: ['Inter', 'sans-serif'],
         headline: ['Inter', 'sans-serif'],

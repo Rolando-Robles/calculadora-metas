@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
+  CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
@@ -15,33 +16,45 @@ import { SalesLineChart } from '@/components/dashboard/sales-line-chart';
 import { DailyRecommendations } from '@/components/dashboard/daily-recommendations';
 import { mockKpiData, mockThirtyDayData } from '@/lib/data';
 import type { TimeRange } from '@/lib/types';
-import { Plus } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
 
 export default function HomePage() {
   const [timeRange, setTimeRange] = useState<TimeRange>('day');
   const kpiData = mockKpiData[timeRange];
   const monthlyData = mockKpiData.month;
   
-  const [lastUpdated] = useState(new Date());
+  const [lastUpdated, setLastUpdated] = useState('');
+
+  useEffect(() => {
+    // This will only run on the client, after initial hydration
+    // to avoid hydration mismatch with server-rendered content
+    const getFormattedDate = () => {
+      try {
+        return new Intl.DateTimeFormat('es-MX', {
+          dateStyle: 'long',
+          timeStyle: 'short',
+          timeZone: 'America/Mexico_City',
+        }).format(new Date());
+      } catch (e) {
+        // Fallback for environments that might not support the timeZone option
+        return new Date().toLocaleString('es-MX');
+      }
+    };
+    setLastUpdated(getFormattedDate());
+  }, []);
 
   return (
-    <div className="flex flex-col h-full">
-      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm md:h-auto md:border-none md:bg-transparent md:px-6 md:pt-4">
-        <h1 className="text-3xl font-headline font-bold">Inicio</h1>
-        <div className="md:hidden">
-          <Fab />
-        </div>
+    <div className="flex flex-col h-full bg-background">
+      <header className="sticky top-0 z-10 flex h-20 items-center justify-between border-b bg-background/80 px-4 backdrop-blur-sm md:h-auto md:border-none md:bg-transparent md:px-6 md:py-4">
+        <h1 className="text-headline-lg font-bold">Inicio</h1>
       </header>
 
-      <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6 space-y-6 pb-20 md:pb-6">
         <Tabs
           defaultValue="day"
           onValueChange={(value) => setTimeRange(value as TimeRange)}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-3 md:w-[240px]">
+          <TabsList className="grid w-full grid-cols-3 md:max-w-xs">
             <TabsTrigger value="day">Día</TabsTrigger>
             <TabsTrigger value="week">Semana</TabsTrigger>
             <TabsTrigger value="month">Mes</TabsTrigger>
@@ -69,31 +82,9 @@ export default function HomePage() {
         </div>
 
         <footer className="text-center text-xs text-muted-foreground pt-4">
-          <p>Última actualización: {lastUpdated.toLocaleString('es-MX')} · Fuente: HubSpot Sync</p>
+          <p>Última actualización: {lastUpdated || 'Cargando...'} · Fuente: HubSpot</p>
         </footer>
       </div>
-
-       <div className="hidden md:block fixed bottom-8 right-8 z-50">
-          <Fab />
-        </div>
     </div>
   );
-}
-
-
-function Fab() {
-    return (
-        <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-                <Button className="rounded-full w-14 h-14 shadow-lg" aria-label="Acciones rápidas">
-                    <Plus className="w-6 h-6" />
-                </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="end" className="w-56 mb-2">
-                <DropdownMenuItem>+ Solicitud</DropdownMenuItem>
-                <DropdownMenuItem>+ Aprobada</DropdownMenuItem>
-                <DropdownMenuItem>+ Desembolso</DropdownMenuItem>
-            </DropdownMenuContent>
-        </DropdownMenu>
-    )
 }

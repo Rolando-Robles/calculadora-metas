@@ -34,7 +34,7 @@ export function SalesLineChart({ data }: SalesLineChartProps) {
     const goalLine = data.length > 0 ? data[0].goal : 0;
     
     const chartConfig = {
-      value: { label: 'Monto', color: 'hsl(var(--chart-1))' },
+      value: { label: 'Monto', color: 'hsl(var(--secondary))' },
       goal: { label: 'Meta', color: 'hsl(var(--destructive))' },
     };
 
@@ -86,6 +86,7 @@ export function SalesLineChart({ data }: SalesLineChartProps) {
               fill="url(#fillValue)"
               stroke="var(--color-value)"
               stackId="a"
+              strokeWidth={2}
             />
             <ReferenceLine y={goalLine} stroke="hsl(var(--destructive))" strokeDasharray="3 3" />
           </AreaChart>

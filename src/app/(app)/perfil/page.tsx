@@ -22,23 +22,27 @@ const faqs = [
         answer: 'Tu comisión base es un porcentaje del monto desembolsado. Puedes ganar multiplicadores (1.05×, 1.10×, etc.) al alcanzar ciertas metas de conteo de desembolsos y/o monto total desembolsado en el mes. Usa el simulador para ver los detalles.'
     },
     {
-        question: '¿Cómo usar el simulador?',
-        answer: 'Ve a la pestaña "Simular". Mueve los deslizadores de "Solicitudes creadas" y "Monto desembolsado" para ver cómo diferentes escenarios afectan tu comisión proyectada y el multiplicador que alcanzarías.'
+        question: '¿De dónde vienen los datos?',
+        answer: 'Todos tus datos de desempeño (solicitudes, aprobadas, desembolsos y montos) se sincronizan automáticamente desde HubSpot. No necesitas ingresarlos manualmente. La información se actualiza diariamente.'
     },
     {
-        question: '¿Cómo registrar mis números?',
-        answer: 'En la pestaña "Capturar", la fecha se selecciona automáticamente a hoy. Simplemente ingresa los conteos de solicitudes creadas, aprobadas, desembolsadas y el monto total del día, y presiona "Guardar". No puedes registrar datos de días futuros o de meses pasados.'
+        question: '¿Cómo funciona la sección de Incentivos?',
+        answer: 'En la pestaña "Incentivos", puedes ver un resumen de tus ganancias históricas y del mes anterior. También encontrarás una tabla con el detalle de pagos por periodo y una gráfica de tus comisiones en los últimos 12 meses.'
+    },
+    {
+        question: '¿Cómo usar el simulador?',
+        answer: 'Ve a la pestaña "Simular". Mueve los deslizadores de "Solicitudes creadas" y "Monto desembolsado" para ver cómo diferentes escenarios afectan tu comisión proyectada y el multiplicador que alcanzarías.'
     }
 ]
 
 export default function PerfilPage() {
   return (
-    <div className="flex flex-col h-full">
-      <header className="sticky top-0 z-10 flex h-16 items-center border-b bg-background/80 px-4 backdrop-blur-sm md:h-auto md:bg-transparent md:px-6 md:pt-4">
-        <h1 className="text-3xl font-headline font-bold">Mi Perfil</h1>
+    <div className="flex flex-col h-full bg-background">
+       <header className="sticky top-0 z-10 flex h-20 items-center border-b bg-background/80 px-4 backdrop-blur-sm md:h-auto md:bg-transparent md:px-6 md:py-4">
+        <h1 className="text-headline-lg font-bold">Mi Perfil</h1>
       </header>
 
-      <div className="flex-1 overflow-auto p-4 md:p-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6">
         <div className="mx-auto max-w-2xl space-y-8">
           <Card>
             <CardContent className="pt-6">
@@ -49,10 +53,10 @@ export default function PerfilPage() {
                 </Avatar>
                 <div>
                   <h2 className="text-2xl font-bold font-headline">{mockUser.name}</h2>
-                  <p className="text-muted-foreground">
+                  <p className="text-muted-foreground text-body-lg">
                     Kiosco: {mockUser.kiosco}
                   </p>
-                  <p className="text-muted-foreground">
+                  <p className="text-muted-foreground text-body-lg">
                     Producto: {mockUser.product}
                   </p>
                 </div>
@@ -68,8 +72,8 @@ export default function PerfilPage() {
               <Accordion type="single" collapsible className="w-full">
                 {faqs.map((faq, index) => (
                      <AccordionItem value={`item-${index}`} key={index}>
-                     <AccordionTrigger>{faq.question}</AccordionTrigger>
-                     <AccordionContent className="text-muted-foreground">
+                     <AccordionTrigger className="text-body-lg text-left">{faq.question}</AccordionTrigger>
+                     <AccordionContent className="text-muted-foreground text-body-lg">
                        {faq.answer}
                      </AccordionContent>
                    </AccordionItem>
@@ -78,8 +82,8 @@ export default function PerfilPage() {
             </CardContent>
           </Card>
           
-          <Button variant="outline" className="w-full">
-            <LogOut className="mr-2 h-4 w-4" />
+          <Button variant="outline" className="w-full h-12 text-lg">
+            <LogOut className="mr-2 h-5 w-5" />
             Cerrar Sesión
           </Button>
         </div>

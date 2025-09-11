@@ -3,38 +3,6 @@
 import { z } from 'zod';
 import { generateDailyRecommendations as generateDailyRecommendationsFlow } from '@/ai/flows/generate-daily-recommendations';
 
-const dailyCaptureSchema = z.object({
-  date: z.string(),
-  created: z.coerce.number().min(0),
-  approved: z.coerce.number().min(0),
-  disbursed: z.coerce.number().min(0),
-  amount: z.coerce.number().min(0),
-});
-
-export async function saveDailyCapture(prevState: any, formData: FormData) {
-  const validatedFields = dailyCaptureSchema.safeParse({
-    date: formData.get('date'),
-    created: formData.get('created'),
-    approved: formData.get('approved'),
-    disbursed: formData.get('disbursed'),
-    amount: formData.get('amount'),
-  });
-
-  if (!validatedFields.success) {
-    return {
-      message: 'Error de validación. Verifique los datos.',
-    };
-  }
-
-  // Simulate saving data
-  console.log('Saving data:', validatedFields.data);
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  return {
-    message: 'Guardado ✓',
-  };
-}
-
 export async function getDailyRecommendations(
   recentPerformanceData: string,
   goals: string,
@@ -46,12 +14,25 @@ export async function getDailyRecommendations(
       goals,
       incentiveScheme,
     });
-    // Split recommendations into a list of strings
-    return result.recommendations.split('\n').map(r => r.replace(/•|-/g, '').trim()).filter(r => r.length > 0);
+    
+    // Split recommendations into a list of strings and clean them up.
+    // Ensure verbs are short and impactful as per spec.
+    const recommendations = result.recommendations
+      .split('\n')
+      .map(r => r.replace(/^(•|-|\*)\s*/, '').trim()) // Remove list markers
+      .filter(r => r.length > 5) // Filter out empty or very short lines
+      .slice(0, 3); // Ensure max 3 bullets
+
+    if (recommendations.length === 0) {
+        return ['No hay recomendaciones específicas para hoy. ¡Sigue con el buen trabajo!'];
+    }
+
+    return recommendations;
+
   } catch (error) {
-    console.error('Error getting recommendations:', error);
+    console.error('Error al generar recomendaciones:', error);
     return [
-      'Error al generar recomendaciones.',
+      'No se pudieron generar las recomendaciones en este momento.',
     ];
   }
 }

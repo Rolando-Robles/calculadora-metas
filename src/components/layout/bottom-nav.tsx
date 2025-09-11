@@ -2,22 +2,21 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Calculator, PlusSquare, User } from 'lucide-react';
+import { Home, Calculator, Trophy, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/', label: 'Inicio', icon: Home },
   { href: '/simular', label: 'Simular', icon: Calculator },
-  { href: '/capturar', label: 'Capturar', icon: PlusSquare },
-  { href: '/perfil', label: 'Perfil', icon: User },
+  { href: '/incentivos', label: 'Incentivos', icon: Trophy },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 h-16 border-t bg-card md:hidden">
-      <div className="mx-auto grid h-full max-w-lg grid-cols-4 font-medium">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 h-20 border-t bg-card md:hidden">
+      <div className="mx-auto grid h-full max-w-lg grid-cols-3 font-medium">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (
@@ -29,15 +28,15 @@ export function BottomNav() {
             >
               <item.icon
                 className={cn(
-                  'mb-1 h-6 w-6 text-muted-foreground',
+                  'mb-1 h-7 w-7 text-muted-foreground',
                   isActive && 'text-primary'
                 )}
                 aria-hidden="true"
               />
               <span
                 className={cn(
-                  'text-xs text-muted-foreground',
-                  isActive && 'text-primary'
+                  'text-sm text-muted-foreground',
+                  isActive && 'text-primary font-semibold'
                 )}
               >
                 {item.label}

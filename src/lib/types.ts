@@ -25,3 +25,16 @@ export interface ChartData {
   value: number;
   goal: number;
 }
+
+export interface IncentivePeriod {
+  period: string;
+  baseCommission: number;
+  multiplier: number;
+  totalPaid: number;
+  date: string;
+}
+
+export interface MonthlyCommission {
+  month: string;
+  commission: number;
+}

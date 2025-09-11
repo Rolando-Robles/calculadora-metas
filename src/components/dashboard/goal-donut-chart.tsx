@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Label, Pie, PieChart, Cell } from 'recharts';
+import { Label, Pie, PieChart } from 'recharts';
 
 import {
   Card,
@@ -67,6 +67,8 @@ export function GoalDonutChart({ current, goal }: GoalDonutChartProps) {
               nameKey="name"
               innerRadius="65%"
               strokeWidth={5}
+              paddingAngle={5}
+              cornerRadius={8}
             >
               <Label
                 content={({ viewBox }) => {
@@ -81,14 +83,14 @@ export function GoalDonutChart({ current, goal }: GoalDonutChartProps) {
                         <tspan
                           x={viewBox.cx}
                           y={viewBox.cy}
-                          className="fill-foreground text-3xl font-bold"
+                          className="fill-foreground text-4xl font-bold font-headline"
                         >
                           {progress.toFixed(0)}%
                         </tspan>
                         <tspan
                           x={viewBox.cx}
-                          y={(viewBox.cy || 0) + 20}
-                          className="fill-muted-foreground"
+                          y={(viewBox.cy || 0) + 24}
+                          className="fill-muted-foreground text-sm"
                         >
                           Faltan {formatCurrency(remaining)}
                         </tspan>
@@ -97,9 +99,6 @@ export function GoalDonutChart({ current, goal }: GoalDonutChartProps) {
                   }
                 }}
               />
-               {chartData.map((entry) => (
-                <Cell key={`cell-${entry.name}`} fill={entry.fill} />
-              ))}
             </Pie>
           </PieChart>
         </ChartContainer>

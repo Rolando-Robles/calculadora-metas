@@ -59,27 +59,27 @@ export default function SimularPage() {
   const { projectedCommission, multiplier, nextLevelHint } = calculateCommission(requests, amount);
 
   return (
-    <div className="flex flex-col h-full">
-      <header className="sticky top-0 z-10 flex h-16 items-center border-b bg-background/80 px-4 backdrop-blur-sm md:h-auto md:bg-transparent md:px-6 md:pt-4">
-        <h1 className="text-3xl font-headline font-bold">Simulador de Incentivos</h1>
+    <div className="flex flex-col h-full bg-background">
+      <header className="sticky top-0 z-10 flex h-20 items-center border-b bg-background/80 px-4 backdrop-blur-sm md:h-auto md:bg-transparent md:px-6 md:py-4">
+        <h1 className="text-headline-lg font-bold">Simulador de Incentivos</h1>
       </header>
 
-      <div className="flex-1 overflow-auto p-4 md:p-6">
+      <div className="flex-1 overflow-auto p-4 md:p-6 pb-20 md:pb-6">
         <div className="mx-auto max-w-2xl space-y-8">
           <Card>
             <CardHeader>
               <CardTitle>¿Qué pasa si...?</CardTitle>
-              <CardDescription>
+              <CardDescription className="text-body-lg">
                 Usa los deslizadores para proyectar tu comisión.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-8">
+            <CardContent className="space-y-8 pt-4">
               <div>
                 <div className="flex justify-between items-end mb-2">
-                    <label htmlFor="requests-slider" className="text-sm font-medium">
-                        Solicitudes Creadas
+                    <label htmlFor="requests-slider" className="text-base font-medium">
+                        Solicitudes creadas
                     </label>
-                    <span className="text-lg font-bold font-headline">{requests}</span>
+                    <span className="text-xl font-bold font-headline">{requests}</span>
                 </div>
                 <Slider
                   id="requests-slider"
@@ -87,14 +87,15 @@ export default function SimularPage() {
                   onValueChange={(value) => setRequests(value[0])}
                   max={60}
                   step={1}
+                  className="h-6"
                 />
               </div>
               <div>
                 <div className="flex justify-between items-end mb-2">
-                    <label htmlFor="amount-slider" className="text-sm font-medium">
+                    <label htmlFor="amount-slider" className="text-base font-medium">
                         Monto Desembolsado
                     </label>
-                    <span className="text-lg font-bold font-headline">{formatCurrency(amount)}</span>
+                    <span className="text-xl font-bold font-headline">{formatCurrency(amount)}</span>
                 </div>
                 <Slider
                   id="amount-slider"
@@ -102,6 +103,7 @@ export default function SimularPage() {
                   onValueChange={(value) => setAmount(value[0])}
                   max={2000000}
                   step={10000}
+                  className="h-6"
                 />
               </div>
             </CardContent>
@@ -113,21 +115,21 @@ export default function SimularPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex justify-between items-center p-4 rounded-lg bg-background">
-                <span className="text-muted-foreground">Comisión Proyectada</span>
-                <span className="text-2xl font-bold text-primary font-headline">
+                <span className="text-muted-foreground text-body-lg">Comisión Proyectada</span>
+                <span className="text-2xl lg:text-3xl font-bold text-primary font-headline">
                   {formatCurrency(projectedCommission)}
                 </span>
               </div>
               <div className="flex justify-between items-center p-4 rounded-lg bg-background">
-                <span className="text-muted-foreground">Multiplicador Alcanzado</span>
-                <span className="text-2xl font-bold text-accent font-headline">{multiplier}×</span>
+                <span className="text-muted-foreground text-body-lg">Multiplicador Alcanzado</span>
+                <span className="text-2xl lg:text-3xl font-bold text-accent font-headline">{multiplier}×</span>
               </div>
               <div className="text-center text-sm text-muted-foreground p-2">
                 <p>{nextLevelHint}</p>
               </div>
             </CardContent>
             <CardFooter>
-              <Button className="w-full">
+              <Button className="w-full text-lg h-12">
                 Guardar como plan del día
               </Button>
             </CardFooter>

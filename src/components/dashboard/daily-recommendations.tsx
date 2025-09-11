@@ -14,10 +14,10 @@ export function DailyRecommendations() {
   useEffect(() => {
     async function fetchRecommendations() {
       setLoading(true);
-      // Mock inputs as requested
+      // Mock inputs for demonstration
       const performanceData = 'Desembolsó 1 de 3 créditos esperados para hoy.';
-      const goals = 'Meta mensual de $900,000 MXN.';
-      const incentiveScheme = 'Bono de 1.05x al alcanzar 45 desembolsos.';
+      const goals = 'Meta mensual de $900,000 MXN. Faltan $320,000.';
+      const incentiveScheme = 'Bono de 1.05x al alcanzar 20 desembolsos. Lleva 18.';
 
       const result = await getDailyRecommendations(performanceData, goals, incentiveScheme);
       setRecommendations(result);
@@ -30,24 +30,24 @@ export function DailyRecommendations() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Lightbulb className="h-5 w-5 text-yellow-400" />
+        <CardTitle className="flex items-center gap-2 text-xl">
+          <Lightbulb className="h-6 w-6 text-yellow-400" />
           <span>Qué hacer hoy</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="space-y-3">
-            <Skeleton className="h-5 w-full" />
-            <Skeleton className="h-5 w-5/6" />
-            <Skeleton className="h-5 w-4/6" />
+          <div className="space-y-4">
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-5/6" />
+            <Skeleton className="h-6 w-4/6" />
           </div>
         ) : (
-          <ul className="space-y-3 text-sm">
+          <ul className="space-y-3 text-body-lg">
             {recommendations.length > 0 ? (
                 recommendations.map((rec, index) => (
                 <li key={index} className="flex items-start gap-3">
-                  <span className="mt-1 block h-2 w-2 flex-shrink-0 rounded-full bg-primary"></span>
+                  <span className="mt-2 block h-2 w-2 flex-shrink-0 rounded-full bg-primary"></span>
                   <span>{rec}</span>
                 </li>
               ))

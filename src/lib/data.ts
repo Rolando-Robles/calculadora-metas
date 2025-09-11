@@ -1,4 +1,6 @@
-import type { User, KpiData, ChartData } from './types';
+import type { User, KpiData, ChartData, IncentivePeriod, MonthlyCommission } from './types';
+import { format, subMonths } from 'date-fns';
+import { es } from 'date-fns/locale';
 
 export const mockUser: User = {
   name: 'Daniela Avendaño',
@@ -36,4 +38,26 @@ export const mockThirtyDayData: ChartData[] = Array.from({ length: 30 }, (_, i) 
     value: Math.floor(Math.random() * (25000 - 10000 + 1)) + 10000 + i * 500,
     goal: 22000,
   };
+});
+
+
+export const mockIncentiveHistory: IncentivePeriod[] = Array.from({ length: 6 }).map((_, i) => {
+    const date = subMonths(new Date(), i + 1);
+    const base = 10000 + Math.random() * 5000;
+    const multiplier = 1 + (Math.random() * 0.15);
+    return {
+        period: format(date, 'MMMM yyyy', { locale: es }),
+        baseCommission: base,
+        multiplier: parseFloat(multiplier.toFixed(2)),
+        totalPaid: base * multiplier,
+        date: format(date, 'dd/MM/yyyy'),
+    };
+});
+
+export const mockMonthlyCommissions: MonthlyCommission[] = Array.from({ length: 12 }).map((_, i) => {
+    const date = subMonths(new Date(), 11 - i);
+    return {
+        month: format(date, 'MMM', { locale: es }),
+        commission: 12000 + Math.random() * 8000
+    };
 });
