@@ -49,6 +49,16 @@ export type GoalAchievementLevel = 'fuera_de_juego' | 'en_juego' | 'cumplido' | 
 
 export type UserCategory = 'G1' | 'G2' | 'G3' | 'G4';
 
+export type ProductType = 'aviva_contigo' | 'aviva_tu_negocio' | 'aviva_tu_compra' | 'casa_marchand' | 'construrama';
+
+export const PRODUCTS: { value: ProductType; label: string }[] = [
+  { value: 'aviva_contigo', label: 'Aviva Contigo' },
+  { value: 'aviva_tu_negocio', label: 'Aviva Tu Negocio' },
+  { value: 'aviva_tu_compra', label: 'Aviva Tu Compra' },
+  { value: 'casa_marchand', label: 'Casa Marchand' },
+  { value: 'construrama', label: 'Construrama' },
+];
+
 export type QualityMultiplier = 'A' | 'B' | 'C' | 'D';
 
 export type GrowthMultiplier = 'A' | 'B' | 'C' | 'D';
@@ -82,6 +92,7 @@ export interface UserGoalConfig {
   userId: string;
   monthlyGoal: number; // Meta mensual de colocación
   category: UserCategory;
+  product?: ProductType;
   period: string; // e.g., "2024-01"
 }
 

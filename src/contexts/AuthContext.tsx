@@ -19,6 +19,7 @@ export interface UserProfile {
   role: UserRole;
   name: string;
   category?: string;
+  product?: string;
 }
 
 interface AuthContextType {

@@ -11,21 +11,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { calculateFinalBonus, GOAL_ACHIEVEMENT_LEVELS } from '@/lib/incentives-config';
@@ -33,11 +18,9 @@ import type {
   UserCategory,
   QualityMultiplier,
   GrowthMultiplier,
-  SalesProjection,
 } from '@/lib/types';
-import { Plus, Trash2, LineChart, Download } from 'lucide-react';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, ResponsiveContainer, Legend } from 'recharts';
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
+import { Sparkles, Target, TrendingUp, Zap } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('es-MX', {
@@ -48,76 +31,132 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
-const MONTHS = [
-  'Enero',
-  'Febrero',
-  'Marzo',
-  'Abril',
-  'Mayo',
-  'Junio',
-  'Julio',
-  'Agosto',
-  'Septiembre',
-  'Octubre',
-  'Noviembre',
-  'Diciembre',
-];
+interface Scenario {
+  name: string;
+  icon: React.ReactNode;
+  description: string;
+  colocacion: number;
+  meta: number;
+  category: UserCategory;
+  qualityMultiplier: QualityMultiplier;
+  growthMultiplier: GrowthMultiplier;
+  bonus: number;
+  achievementLevel: string;
+  color: string;
+}
 
 export default function ProyeccionesPage() {
-  const [projections, setProjections] = useState<SalesProjection[]>([]);
-  const [newProjection, setNewProjection] = useState({
-    month: MONTHS[new Date().getMonth()],
-    projectedColocacion: 300000,
-    projectedMeta: 300000,
-    category: 'G4' as UserCategory,
-    qualityMultiplier: 'B' as QualityMultiplier,
-    growthMultiplier: 'B' as GrowthMultiplier,
-  });
+  const [targetBonus, setTargetBonus] = useState<number>(50000);
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
 
-  const addProjection = () => {
+  const generateScenarios = () => {
+    const newScenarios: Scenario[] = [];
+
+    // Scenario 1: Conservative - Higher colocación, basic multipliers
+    const conservative = generateScenario(
+      targetBonus,
+      'G4' as UserCategory,
+      'B' as QualityMultiplier,
+      'B' as GrowthMultiplier,
+      1.0
+    );
+    newScenarios.push({
+      name: 'Escenario Conservador',
+      icon: <Target className="h-5 w-5" />,
+      description: 'Mayor colocación con multiplicadores básicos. Enfoque en volumen.',
+      ...conservative,
+      color: 'bg-blue-500',
+    });
+
+    // Scenario 2: Balanced - Moderate colocación, better quality
+    const balanced = generateScenario(
+      targetBonus,
+      'G4' as UserCategory,
+      'A' as QualityMultiplier,
+      'B' as GrowthMultiplier,
+      0.85
+    );
+    newScenarios.push({
+      name: 'Escenario Balanceado',
+      icon: <TrendingUp className="h-5 w-5" />,
+      description: 'Equilibrio entre colocación y calidad. Estrategia mixta.',
+      ...balanced,
+      color: 'bg-primary',
+    });
+
+    // Scenario 3: Optimized - Best multipliers, lower colocación
+    const optimized = generateScenario(
+      targetBonus,
+      'G4' as UserCategory,
+      'A' as QualityMultiplier,
+      'A' as GrowthMultiplier,
+      0.73
+    );
+    newScenarios.push({
+      name: 'Escenario Optimizado',
+      icon: <Zap className="h-5 w-5" />,
+      description: 'Maximiza calidad y crecimiento. Menor colocación requerida.',
+      ...optimized,
+      color: 'bg-secondary',
+    });
+
+    setScenarios(newScenarios);
+  };
+
+  const generateScenario = (
+    target: number,
+    category: UserCategory,
+    quality: QualityMultiplier,
+    growth: GrowthMultiplier,
+    multiplier: number
+  ) => {
+    // Estimate colocación needed based on target bonus
+    // Working backwards from: bonus = colocación × bonusBase% × quality × growth
+    const qualityValues = { A: 1.2, B: 1.0, C: 0.6, D: 0.0 };
+    const growthValues = { A: 1.15, B: 1.0, C: 0.8, D: 0.6 };
+
+    // Assume "Elite" level (>150%) which gives 4% bonus for G4
+    const bonusBasePercentage = 0.04; // 4% for Elite G4
+
+    const totalMultiplier = bonusBasePercentage * qualityValues[quality] * growthValues[growth];
+    let estimatedColocacion = target / totalMultiplier;
+
+    // Apply adjustment multiplier
+    estimatedColocacion = estimatedColocacion * multiplier;
+
+    // Round to nice numbers
+    estimatedColocacion = Math.ceil(estimatedColocacion / 10000) * 10000;
+
+    // Set meta to make this an "Elite" achievement (colocación should be 150%+ of meta)
+    const meta = Math.floor(estimatedColocacion / 1.6); // Will give ~160% achievement
+    const roundedMeta = Math.ceil(meta / 10000) * 10000;
+
+    // Calculate actual bonus
     const calculation = calculateFinalBonus(
-      newProjection.projectedColocacion,
-      newProjection.projectedMeta,
-      newProjection.category,
-      newProjection.qualityMultiplier,
-      newProjection.growthMultiplier
+      estimatedColocacion,
+      roundedMeta,
+      category,
+      quality,
+      growth
     );
 
-    const projection: SalesProjection = {
-      month: newProjection.month,
-      projectedColocacion: newProjection.projectedColocacion,
-      projectedMeta: newProjection.projectedMeta,
-      projectedBonus: calculation.bonusFinal,
-      category: newProjection.category,
-      qualityMultiplier: newProjection.qualityMultiplier,
-      growthMultiplier: newProjection.growthMultiplier,
-    };
-
-    setProjections([...projections, projection]);
-  };
-
-  const removeProjection = (index: number) => {
-    setProjections(projections.filter((_, i) => i !== index));
-  };
-
-  const totalProjectedBonus = projections.reduce((sum, p) => sum + p.projectedBonus, 0);
-  const totalProjectedColocacion = projections.reduce((sum, p) => sum + p.projectedColocacion, 0);
-
-  const chartData = projections.map(p => ({
-    name: p.month,
-    Colocación: p.projectedColocacion,
-    Bono: p.projectedBonus,
-  }));
-
-  const getLevelForProjection = (colocacion: number, meta: number) => {
-    const percentage = meta > 0 ? (colocacion / meta) * 100 : 0;
+    const achievementPercentage = (estimatedColocacion / roundedMeta) * 100;
     const level = GOAL_ACHIEVEMENT_LEVELS.find(l => {
       if (l.maxPercentage === null) {
-        return percentage >= l.minPercentage;
+        return achievementPercentage >= l.minPercentage;
       }
-      return percentage >= l.minPercentage && percentage < l.maxPercentage;
+      return achievementPercentage >= l.minPercentage && achievementPercentage < l.maxPercentage;
     });
-    return level?.label || 'N/A';
+
+    return {
+      colocacion: estimatedColocacion,
+      meta: roundedMeta,
+      category,
+      qualityMultiplier: quality,
+      growthMultiplier: growth,
+      bonus: calculation.bonusFinal,
+      achievementLevel: level?.label || 'N/A',
+    };
   };
 
   return (
@@ -125,12 +164,12 @@ export default function ProyeccionesPage() {
       <header className="sticky top-0 z-10 border-b bg-gradient-to-r from-primary to-secondary p-6 text-white">
         <div className="flex items-center gap-3">
           <div className="bg-white/20 p-3 rounded-full">
-            <LineChart className="h-6 w-6" />
+            <Sparkles className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Proyecciones de Venta</h1>
+            <h1 className="text-2xl font-bold">Proyecciones Inspiracionales</h1>
             <p className="text-sm text-white/90">
-              Planifica tus ventas y proyecta tus incentivos
+              Define tu meta y descubre cómo alcanzarla
             </p>
           </div>
         </div>
@@ -138,326 +177,183 @@ export default function ProyeccionesPage() {
 
       <div className="flex-1 overflow-auto p-4 md:p-6 pb-24 md:pb-6">
         <div className="mx-auto max-w-6xl space-y-6">
-          {/* Summary Cards */}
-          {projections.length > 0 && (
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Total Proyecciones
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold">{projections.length}</p>
-                  <p className="text-xs text-muted-foreground mt-1">meses proyectados</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Colocación Total Proyectada
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold text-primary">
-                    {formatCurrency(totalProjectedColocacion)}
-                  </p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium text-muted-foreground">
-                    Bonos Totales Proyectados
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-3xl font-bold text-secondary">
-                    {formatCurrency(totalProjectedBonus)}
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Chart */}
-          {projections.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-center">
-                  <div>
-                    <CardTitle>Gráfica de Proyecciones</CardTitle>
-                    <CardDescription>Visualiza tus colocaciones y bonos proyectados</CardDescription>
-                  </div>
-                  <Button variant="outline" size="sm">
-                    <Download className="h-4 w-4 mr-2" />
-                    Exportar
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <ChartContainer
-                  config={{
-                    Colocación: { label: 'Colocación', color: 'hsl(var(--primary))' },
-                    Bono: { label: 'Bono', color: 'hsl(var(--secondary))' },
-                  }}
-                  className="h-[300px] w-full"
-                >
-                  <ResponsiveContainer>
-                    <BarChart data={chartData}>
-                      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                      <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                      <YAxis
-                        tickFormatter={value => `$${Number(value) / 1000}k`}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <ChartTooltip
-                        content={<ChartTooltipContent formatter={value => formatCurrency(Number(value))} />}
-                      />
-                      <Legend />
-                      <Bar dataKey="Colocación" fill="hsl(var(--primary))" radius={4} />
-                      <Bar dataKey="Bono" fill="hsl(var(--secondary))" radius={4} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </ChartContainer>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Add Projection Form */}
-          <Card>
+          {/* Target Input Card */}
+          <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Plus className="h-5 w-5" />
-                Nueva Proyección
+                <Target className="h-5 w-5 text-primary" />
+                Define tu Meta de Ingresos
               </CardTitle>
-              <CardDescription>Agrega una proyección de venta para un mes específico</CardDescription>
+              <CardDescription>
+                Ingresa el bono mensual que deseas alcanzar y te mostraremos 3 escenarios diferentes para lograrlo
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <div className="space-y-2">
-                  <Label htmlFor="month">Mes</Label>
-                  <Select
-                    value={newProjection.month}
-                    onValueChange={month => setNewProjection({ ...newProjection, month })}
-                  >
-                    <SelectTrigger id="month">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {MONTHS.map(month => (
-                        <SelectItem key={month} value={month}>
-                          {month}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="colocacion">Colocación Proyectada</Label>
+              <div className="flex flex-col md:flex-row gap-4 items-end">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="target">Bono Mensual Deseado</Label>
                   <Input
-                    id="colocacion"
+                    id="target"
                     type="number"
-                    value={newProjection.projectedColocacion}
-                    onChange={e =>
-                      setNewProjection({
-                        ...newProjection,
-                        projectedColocacion: Number(e.target.value),
-                      })
-                    }
-                    step={10000}
+                    value={targetBonus}
+                    onChange={e => setTargetBonus(Number(e.target.value))}
+                    step={5000}
+                    className="text-lg font-semibold"
+                    placeholder="Ej: 50000"
                   />
+                  <p className="text-sm text-muted-foreground">
+                    Bono objetivo: <span className="font-bold text-primary">{formatCurrency(targetBonus)}</span>
+                  </p>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="meta-proj">Meta</Label>
-                  <Input
-                    id="meta-proj"
-                    type="number"
-                    value={newProjection.projectedMeta}
-                    onChange={e =>
-                      setNewProjection({ ...newProjection, projectedMeta: Number(e.target.value) })
-                    }
-                    step={10000}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="category-proj">Categoría</Label>
-                  <Select
-                    value={newProjection.category}
-                    onValueChange={category =>
-                      setNewProjection({ ...newProjection, category: category as UserCategory })
-                    }
-                  >
-                    <SelectTrigger id="category-proj">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="G1">G1</SelectItem>
-                      <SelectItem value="G2">G2</SelectItem>
-                      <SelectItem value="G3">G3</SelectItem>
-                      <SelectItem value="G4">G4 - Elite</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="quality-proj">Calidad</Label>
-                  <Select
-                    value={newProjection.qualityMultiplier}
-                    onValueChange={quality =>
-                      setNewProjection({
-                        ...newProjection,
-                        qualityMultiplier: quality as QualityMultiplier,
-                      })
-                    }
-                  >
-                    <SelectTrigger id="quality-proj">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A">A - Excelente (×1.20)</SelectItem>
-                      <SelectItem value="B">B - Buena (×1.00)</SelectItem>
-                      <SelectItem value="C">C - Regular (×0.60)</SelectItem>
-                      <SelectItem value="D">D - Deficiente (×0.00)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="growth-proj">Crecimiento</Label>
-                  <Select
-                    value={newProjection.growthMultiplier}
-                    onValueChange={growth =>
-                      setNewProjection({
-                        ...newProjection,
-                        growthMultiplier: growth as GrowthMultiplier,
-                      })
-                    }
-                  >
-                    <SelectTrigger id="growth-proj">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="A">A - Excelente (×1.15)</SelectItem>
-                      <SelectItem value="B">B - Bueno (×1.00)</SelectItem>
-                      <SelectItem value="C">C - Regular (×0.80)</SelectItem>
-                      <SelectItem value="D">D - Bajo (×0.60)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="mt-4 flex justify-end">
-                <Button onClick={addProjection} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Agregar Proyección
+                <Button
+                  onClick={generateScenarios}
+                  size="lg"
+                  className="gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Generar Escenarios
                 </Button>
               </div>
             </CardContent>
           </Card>
 
-          {/* Projections Table */}
-          {projections.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Tus Proyecciones</CardTitle>
-                <CardDescription>Revisa y gestiona todas tus proyecciones de venta</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Mes</TableHead>
-                        <TableHead className="text-right">Colocación</TableHead>
-                        <TableHead className="text-right">Meta</TableHead>
-                        <TableHead>Nivel</TableHead>
-                        <TableHead className="text-center">Cat.</TableHead>
-                        <TableHead className="text-center">Calidad</TableHead>
-                        <TableHead className="text-center">Crecimiento</TableHead>
-                        <TableHead className="text-right">Bono Proyectado</TableHead>
-                        <TableHead></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {projections.map((proj, index) => (
-                        <TableRow key={index}>
-                          <TableCell className="font-medium">{proj.month}</TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(proj.projectedColocacion)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(proj.projectedMeta)}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-xs">
-                              {getLevelForProjection(proj.projectedColocacion, proj.projectedMeta)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="secondary">{proj.category}</Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge
-                              className={cn({
-                                'bg-green-500 text-white': proj.qualityMultiplier === 'A',
-                                'bg-blue-500 text-white': proj.qualityMultiplier === 'B',
-                                'bg-yellow-500 text-black': proj.qualityMultiplier === 'C',
-                                'bg-red-500 text-white': proj.qualityMultiplier === 'D',
-                              })}
-                            >
-                              {proj.qualityMultiplier}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge
-                              className={cn({
-                                'bg-green-500 text-white': proj.growthMultiplier === 'A',
-                                'bg-blue-500 text-white': proj.growthMultiplier === 'B',
-                                'bg-yellow-500 text-black': proj.growthMultiplier === 'C',
-                                'bg-red-500 text-white': proj.growthMultiplier === 'D',
-                              })}
-                            >
-                              {proj.growthMultiplier}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right font-bold text-primary">
-                            {formatCurrency(proj.projectedBonus)}
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeProjection(index)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Info Alert */}
+          {scenarios.length === 0 && (
+            <Alert>
+              <Sparkles className="h-4 w-4" />
+              <AlertDescription>
+                <strong>¿Cómo funciona?</strong> Ingresa el bono que deseas ganar y te mostraremos 3 caminos diferentes para alcanzarlo.
+                Cada escenario tiene diferentes combinaciones de colocación, calidad y crecimiento.
+              </AlertDescription>
+            </Alert>
           )}
 
-          {projections.length === 0 && (
-            <Card className="border-dashed">
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <LineChart className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-lg font-medium text-muted-foreground mb-2">
-                  No hay proyecciones aún
+          {/* Scenarios Grid */}
+          {scenarios.length > 0 && (
+            <>
+              <div className="text-center space-y-2 py-4">
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                  3 Caminos para alcanzar tu meta
+                </h2>
+                <p className="text-muted-foreground">
+                  Cada escenario te muestra una estrategia diferente. Elige el que mejor se adapte a tu estilo de venta.
                 </p>
-                <p className="text-sm text-muted-foreground">
-                  Comienza agregando tu primera proyección de venta
-                </p>
-              </CardContent>
-            </Card>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-3">
+                {scenarios.map((scenario, index) => (
+                  <Card
+                    key={index}
+                    className={cn(
+                      'relative overflow-hidden border-2 transition-all hover:shadow-lg hover:scale-105',
+                      index === 0 && 'border-blue-500/50',
+                      index === 1 && 'border-primary/50',
+                      index === 2 && 'border-secondary/50'
+                    )}
+                  >
+                    {/* Header with gradient */}
+                    <div
+                      className={cn(
+                        'p-6 text-white',
+                        scenario.color
+                      )}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="bg-white/20 p-2 rounded-full">
+                          {scenario.icon}
+                        </div>
+                        <h3 className="text-lg font-bold">{scenario.name}</h3>
+                      </div>
+                      <p className="text-sm text-white/90">{scenario.description}</p>
+                    </div>
+
+                    <CardContent className="space-y-4 pt-6">
+                      {/* Bonus Amount - Highlighted */}
+                      <div className="text-center p-4 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-lg border-2 border-primary/20">
+                        <p className="text-sm text-muted-foreground font-medium mb-1">Bono Estimado</p>
+                        <p className="text-3xl font-bold text-primary">
+                          {formatCurrency(scenario.bonus)}
+                        </p>
+                      </div>
+
+                      {/* Achievement Level */}
+                      <div className="flex justify-center">
+                        <Badge variant="outline" className="text-sm px-4 py-1">
+                          Nivel: {scenario.achievementLevel}
+                        </Badge>
+                      </div>
+
+                      {/* Details */}
+                      <div className="space-y-3 pt-2">
+                        <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                          <span className="text-sm font-medium">Colocación</span>
+                          <span className="text-sm font-bold text-primary">
+                            {formatCurrency(scenario.colocacion)}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                          <span className="text-sm font-medium">Meta</span>
+                          <span className="text-sm font-bold">
+                            {formatCurrency(scenario.meta)}
+                          </span>
+                        </div>
+
+                        <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                          <span className="text-sm font-medium">% Cumplimiento</span>
+                          <span className="text-sm font-bold text-secondary">
+                            {((scenario.colocacion / scenario.meta) * 100).toFixed(0)}%
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="text-center p-2 bg-muted/50 rounded">
+                            <p className="text-xs text-muted-foreground mb-1">Cat.</p>
+                            <Badge variant="secondary" className="text-xs">
+                              {scenario.category}
+                            </Badge>
+                          </div>
+                          <div className="text-center p-2 bg-muted/50 rounded">
+                            <p className="text-xs text-muted-foreground mb-1">Calidad</p>
+                            <Badge
+                              className={cn('text-xs', {
+                                'bg-green-500 text-white': scenario.qualityMultiplier === 'A',
+                                'bg-blue-500 text-white': scenario.qualityMultiplier === 'B',
+                              })}
+                            >
+                              {scenario.qualityMultiplier}
+                            </Badge>
+                          </div>
+                          <div className="text-center p-2 bg-muted/50 rounded">
+                            <p className="text-xs text-muted-foreground mb-1">Crec.</p>
+                            <Badge
+                              className={cn('text-xs', {
+                                'bg-green-500 text-white': scenario.growthMultiplier === 'A',
+                                'bg-blue-500 text-white': scenario.growthMultiplier === 'B',
+                              })}
+                            >
+                              {scenario.growthMultiplier}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Motivational Card */}
+              <Card className="border-2 border-secondary/20 bg-gradient-to-br from-secondary/10 to-primary/10">
+                <CardContent className="p-6 text-center">
+                  <Sparkles className="h-10 w-10 mx-auto mb-3 text-primary" />
+                  <h3 className="text-xl font-bold mb-2">¡Tu éxito está a tu alcance!</h3>
+                  <p className="text-muted-foreground">
+                    Cada escenario representa un camino viable hacia tu meta. Elige el que mejor se alinee con tus
+                    fortalezas y trabaja con determinación. <strong className="text-primary">¡Tú puedes lograrlo!</strong>
+                  </p>
+                </CardContent>
+              </Card>
+            </>
           )}
         </div>
       </div>
