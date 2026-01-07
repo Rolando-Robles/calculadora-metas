@@ -56,16 +56,26 @@ export default function ProyeccionesPage() {
 
   useEffect(() => {
     const loadUserGoal = async () => {
-      if (!user) return;
+      if (!user) {
+        console.log('❌ No user logged in');
+        return;
+      }
 
       try {
         setLoading(true);
+        console.log('🔍 Loading goals for user:', user.uid);
         const goals = await getUserGoals(user.uid);
+        console.log('📋 All goals loaded:', goals);
+
         const currentPeriod = new Date().toISOString().slice(0, 7);
+        console.log('📅 Current period:', currentPeriod);
+
         const currentGoal = goals.find(g => g.period === currentPeriod);
+        console.log('🎯 Found goal for current period:', currentGoal);
+
         setUserGoal(currentGoal || null);
       } catch (error) {
-        console.error('Error loading user goal:', error);
+        console.error('❌ Error loading user goal:', error);
       } finally {
         setLoading(false);
       }
