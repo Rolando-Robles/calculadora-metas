@@ -3,11 +3,12 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import {
   User,
-  signInWithEmailAndPassword,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut as firebaseSignOut,
   onAuthStateChanged,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
 export type UserRole = 'admin' | 'vendedor';
@@ -24,7 +25,7 @@ interface AuthContextType {
   user: User | null;
   userProfile: UserProfile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   isAdmin: boolean;
 }
@@ -49,13 +50,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ...userDoc.data(),
           } as UserProfile);
         } else {
-          // Default profile if doesn't exist
-          setUserProfile({
+          // Create default profile for new Google users
+          const defaultProfile = {
             uid: user.uid,
             email: user.email || '',
-            role: 'vendedor',
-            name: user.email?.split('@')[0] || 'Usuario',
-          });
+            role: 'vendedor' as UserRole,
+            name: user.displayName || user.email?.split('@')[0] || 'Usuario',
+            createdAt: new Date().toISOString(),
+          };
+
+          // Save to Firestore
+          await setDoc(doc(db, 'users', user.uid), defaultProfile);
+
+          setUserProfile(defaultProfile);
         }
       } else {
         setUserProfile(null);
@@ -66,11 +73,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+  const signInWithGoogle = async () => {
+    if (!auth) throw new Error('Firebase Auth not initialized');
+    const provider = new GoogleAuthProvider();
+    await signInWithPopup(auth, provider);
   };
 
   const signOut = async () => {
+    if (!auth) return;
     await firebaseSignOut(auth);
   };
 
@@ -82,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         userProfile,
         loading,
-        signIn,
+        signInWithGoogle,
         signOut,
         isAdmin,
       }}
