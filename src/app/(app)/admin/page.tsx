@@ -184,23 +184,31 @@ function AdminContent() {
       const existingGoal = getUserGoal(userId);
       const user = registeredUsers.find(u => u.id === userId);
 
+      console.log('📝 Updating goal:', { userId, field, value, existingGoal });
+
       if (existingGoal) {
         // Update existing goal
         const updatedGoal: UserGoalConfig = {
           userId,
           monthlyGoal: field === 'monthlyGoal' ? Number(value) : existingGoal.monthlyGoal,
-          category: field === 'category' ? value : existingGoal.category,
-          product: field === 'product' ? value : existingGoal.product,
+          category: field === 'category' ? value : (existingGoal.category || user?.category || 'G4'),
+          product: field === 'product' ? value : (existingGoal.product || user?.product),
           period: field === 'period' ? value : existingGoal.period,
         };
+
+        console.log('✏️ Updating existing goal:', updatedGoal);
         await saveUserGoal(updatedGoal);
 
         // Update local state only
-        setUserGoals(prev => prev.map(g =>
-          g.userId === userId && g.period === existingGoal.period
-            ? { ...g, ...updatedGoal }
-            : g
-        ));
+        setUserGoals(prev => {
+          const updated = prev.map(g =>
+            g.userId === userId && g.period === existingGoal.period
+              ? { ...g, ...updatedGoal }
+              : g
+          );
+          console.log('✅ Local state updated:', updated);
+          return updated;
+        });
       } else {
         // Create new goal
         const newGoal: UserGoalConfig = {
@@ -210,14 +218,20 @@ function AdminContent() {
           product: user?.product,
           period: field === 'period' ? value : currentPeriod,
         };
+
+        console.log('🆕 Creating new goal:', newGoal);
         await saveUserGoal(newGoal);
 
         // Add to local state
         const goalId = `${userId}-${newGoal.period}`;
-        setUserGoals(prev => [...prev, { ...newGoal, id: goalId }]);
+        setUserGoals(prev => {
+          const updated = [...prev, { ...newGoal, id: goalId }];
+          console.log('✅ Local state with new goal:', updated);
+          return updated;
+        });
       }
     } catch (error) {
-      console.error('Error updating goal:', error);
+      console.error('❌ Error updating goal:', error);
       toast({
         title: 'Error',
         description: 'No se pudo actualizar la meta',
@@ -344,7 +358,7 @@ function AdminContent() {
                             const userGoal = getUserGoal(user.id);
                             const currentPeriod = new Date().toISOString().slice(0, 7);
                             return (
-                              <TableRow key={user.id}>
+                              <TableRow key={`${user.id}-${userGoal?.id || 'no-goal'}`}>
                                 <TableCell className="font-medium">{user.name}</TableCell>
                                 <TableCell className="text-sm">{user.email}</TableCell>
                                 <TableCell>
@@ -415,6 +429,7 @@ function AdminContent() {
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <Input
+                                    key={`goal-${user.id}-${userGoal?.monthlyGoal || 'empty'}`}
                                     type="number"
                                     className="w-32 text-right"
                                     placeholder="$300,000"
@@ -429,6 +444,7 @@ function AdminContent() {
                                 </TableCell>
                                 <TableCell>
                                   <Input
+                                    key={`period-${user.id}-${userGoal?.period || 'empty'}`}
                                     type="month"
                                     className="w-40"
                                     defaultValue={userGoal?.period || currentPeriod}
