@@ -5,6 +5,10 @@ export interface User {
   kiosco: string;
   product: string;
   avatarUrl: string;
+  category?: UserCategory;
+  goalAchievementLevel?: GoalAchievementLevel;
+  qualityMultiplier?: QualityMultiplier;
+  growthMultiplier?: GrowthMultiplier;
 }
 
 export interface Kpi {
@@ -37,4 +41,71 @@ export interface IncentivePeriod {
 export interface MonthlyCommission {
   month: string;
   commission: number;
+}
+
+// ===== Originadores de Excelencia Types =====
+
+export type GoalAchievementLevel = 'fuera_de_juego' | 'en_juego' | 'cumplido' | 'dominado' | 'sobresaliente' | 'elite';
+
+export type UserCategory = 'G1' | 'G2' | 'G3' | 'G4';
+
+export type QualityMultiplier = 'A' | 'B' | 'C' | 'D';
+
+export type GrowthMultiplier = 'A' | 'B' | 'C' | 'D';
+
+export interface GoalAchievementConfig {
+  level: GoalAchievementLevel;
+  minPercentage: number;
+  maxPercentage: number | null;
+  label: string;
+  bonusPercentages: {
+    G1: number;
+    G2: number;
+    G3: number;
+    G4: number;
+  };
+}
+
+export interface QualityMultiplierConfig {
+  level: QualityMultiplier;
+  value: number;
+  label: string;
+}
+
+export interface GrowthMultiplierConfig {
+  level: GrowthMultiplier;
+  value: number;
+  label: string;
+}
+
+export interface UserGoalConfig {
+  userId: string;
+  monthlyGoal: number; // Meta mensual de colocación
+  category: UserCategory;
+  period: string; // e.g., "2024-01"
+}
+
+export interface IncentiveCalculation {
+  colocacion: number; // Monto colocado
+  meta: number; // Meta asignada
+  achievementPercentage: number; // % de cumplimiento
+  achievementLevel: GoalAchievementLevel;
+  category: UserCategory;
+  bonusBasePercentage: number; // % Bono Base según categoría y cumplimiento
+  bonusBase: number; // Colocación × % Bono Base
+  qualityMultiplier: QualityMultiplier;
+  qualityMultiplierValue: number;
+  growthMultiplier: GrowthMultiplier;
+  growthMultiplierValue: number;
+  bonusFinal: number; // Bono Base × Multiplicador Calidad × Multiplicador Crecimiento
+}
+
+export interface SalesProjection {
+  month: string;
+  projectedColocacion: number;
+  projectedMeta: number;
+  projectedBonus: number;
+  category: UserCategory;
+  qualityMultiplier: QualityMultiplier;
+  growthMultiplier: GrowthMultiplier;
 }
