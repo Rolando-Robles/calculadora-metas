@@ -161,13 +161,27 @@ npm run lint
 
 ## 🚀 Deployment
 
-### Firebase Hosting
+### Firebase App Hosting (Recomendado) ⭐
 
-1. Configura Firebase en tu proyecto
-2. Agrega las variables de entorno
-3. Deploy con `firebase deploy`
+La forma más sencilla de desplegar esta aplicación Next.js:
 
-### Vercel
+1. **Lee la guía completa**: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+2. **Conecta tu repositorio** de GitHub en Firebase Console
+3. **Configura las variables** de entorno en Firebase
+4. **Deploy automático** desde GitHub
+
+**Características:**
+- ✅ Deploy automático en cada push
+- ✅ Soporte completo para Next.js (SSR, API Routes, etc.)
+- ✅ Preview deployments en cada PR
+- ✅ Escalado automático
+- ✅ Sin configuración manual de build
+
+**📖 Guía paso a paso**: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+
+### Otras opciones
+
+#### Vercel
 
 1. Conecta tu repositorio a Vercel
 2. Agrega las variables de entorno de Firebase
