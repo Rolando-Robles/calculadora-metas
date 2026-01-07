@@ -23,6 +23,7 @@ import { Sparkles, Target, TrendingUp, Zap, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserGoals } from '@/lib/firestore-service';
+import { useToast } from '@/hooks/use-toast';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('es-MX', {
@@ -49,7 +50,8 @@ interface Scenario {
 
 export default function ProyeccionesPage() {
   const { user, userProfile } = useAuth();
-  const [targetBonus, setTargetBonus] = useState<number>(50000);
+  const { toast } = useToast();
+  const [targetBonus, setTargetBonus] = useState<number>(0);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [userGoal, setUserGoal] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -86,6 +88,15 @@ export default function ProyeccionesPage() {
 
   const generateScenarios = () => {
     if (!userGoal) {
+      return;
+    }
+
+    if (!targetBonus || targetBonus <= 0) {
+      toast({
+        title: 'Error',
+        description: 'Por favor ingresa un bono objetivo mayor a $0',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -154,33 +165,53 @@ export default function ProyeccionesPage() {
     multiplier: number,
     userMeta: number
   ) => {
-    // Estimate colocación needed based on target bonus
-    // Working backwards from: bonus = colocación × bonusBase% × quality × growth
+    // Use binary search to find the colocación that gives us the target bonus
     const qualityValues = { A: 1.2, B: 1.0, C: 0.6, D: 0.0 };
     const growthValues = { A: 1.15, B: 1.0, C: 0.8, D: 0.6 };
 
-    // Assume "Elite" level (>150%) which gives 4% bonus for G4
-    const bonusBasePercentage = 0.04; // 4% for Elite G4
+    // Start with a rough estimate
+    let low = target * 0.5; // Lower bound
+    let high = target * 50; // Upper bound
+    let bestColocacion = high;
+    let bestDifference = Infinity;
+    let iterations = 0;
+    const maxIterations = 50;
 
-    const totalMultiplier = bonusBasePercentage * qualityValues[quality] * growthValues[growth];
-    let estimatedColocacion = target / totalMultiplier;
+    // Binary search for the colocación that produces the closest bonus to target
+    while (iterations < maxIterations && (high - low) > 1000) {
+      const mid = (low + high) / 2;
+      const testCalculation = calculateFinalBonus(mid, userMeta, category, quality, growth);
+      const difference = Math.abs(testCalculation.bonusFinal - target);
 
-    // Apply adjustment multiplier
-    estimatedColocacion = estimatedColocacion * multiplier;
+      if (difference < bestDifference) {
+        bestDifference = difference;
+        bestColocacion = mid;
+      }
+
+      if (testCalculation.bonusFinal < target) {
+        low = mid;
+      } else {
+        high = mid;
+      }
+      iterations++;
+    }
+
+    // Apply scenario multiplier for variation
+    bestColocacion = bestColocacion * multiplier;
 
     // Round to nice numbers
-    estimatedColocacion = Math.ceil(estimatedColocacion / 10000) * 10000;
+    bestColocacion = Math.round(bestColocacion / 10000) * 10000;
 
-    // Calculate actual bonus using the user's real meta
-    const calculation = calculateFinalBonus(
-      estimatedColocacion,
+    // Calculate final bonus with the found colocación
+    const finalCalculation = calculateFinalBonus(
+      bestColocacion,
       userMeta,
       category,
       quality,
       growth
     );
 
-    const achievementPercentage = (estimatedColocacion / userMeta) * 100;
+    const achievementPercentage = (bestColocacion / userMeta) * 100;
     const level = GOAL_ACHIEVEMENT_LEVELS.find(l => {
       if (l.maxPercentage === null) {
         return achievementPercentage >= l.minPercentage;
@@ -189,12 +220,12 @@ export default function ProyeccionesPage() {
     });
 
     return {
-      colocacion: estimatedColocacion,
+      colocacion: bestColocacion,
       meta: userMeta,
       category,
       qualityMultiplier: quality,
       growthMultiplier: growth,
-      bonus: calculation.bonusFinal,
+      bonus: finalCalculation.bonusFinal,
       achievementLevel: level?.label || 'N/A',
     };
   };
@@ -279,15 +310,17 @@ export default function ProyeccionesPage() {
                       <Input
                         id="target"
                         type="number"
-                        value={targetBonus}
+                        value={targetBonus || ''}
                         onChange={e => setTargetBonus(Number(e.target.value))}
                         step={5000}
                         className="text-lg font-semibold"
-                        placeholder="Ej: 50000"
+                        placeholder="Ingresa el bono que deseas alcanzar"
                       />
-                      <p className="text-sm text-muted-foreground">
-                        Bono objetivo: <span className="font-bold text-primary">{formatCurrency(targetBonus)}</span>
-                      </p>
+                      {targetBonus > 0 && (
+                        <p className="text-sm text-muted-foreground">
+                          Bono objetivo: <span className="font-bold text-primary">{formatCurrency(targetBonus)}</span>
+                        </p>
+                      )}
                     </div>
                     <Button
                       onClick={generateScenarios}
