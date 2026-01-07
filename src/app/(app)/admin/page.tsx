@@ -68,6 +68,7 @@ function AdminContent() {
   const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
   const [editingGoal, setEditingGoal] = useState<{[key: string]: any}>({});
   const [selectedProductFilter, setSelectedProductFilter] = useState<string>('all');
+  const [tempGoals, setTempGoals] = useState<{[key: string]: {goal: string, period: string}}>({});
 
   useEffect(() => {
     loadConfigurations();
@@ -351,12 +352,18 @@ function AdminContent() {
                             <TableHead>Producto</TableHead>
                             <TableHead className="text-right">Meta Mensual</TableHead>
                             <TableHead>Periodo</TableHead>
+                            <TableHead className="text-center">Acciones</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
                           {filteredUsers.map((user) => {
                             const userGoal = getUserGoal(user.id);
                             const currentPeriod = new Date().toISOString().slice(0, 7);
+                            const tempData = tempGoals[user.id] || {
+                              goal: userGoal?.monthlyGoal?.toString() || '',
+                              period: userGoal?.period || currentPeriod
+                            };
+
                             return (
                               <TableRow key={`${user.id}-${userGoal?.id || 'no-goal'}`}>
                                 <TableCell className="font-medium">{user.name}</TableCell>
@@ -372,7 +379,6 @@ function AdminContent() {
                                     onValueChange={async (value) => {
                                       try {
                                         await updateUserProfile(user.id, { category: value });
-                                        // Update local state only
                                         setRegisteredUsers(prev =>
                                           prev.map(u => u.id === user.id ? { ...u, category: value } : u)
                                         );
@@ -402,7 +408,6 @@ function AdminContent() {
                                     onValueChange={async (value) => {
                                       try {
                                         await updateUserProfile(user.id, { product: value });
-                                        // Update local state only
                                         setRegisteredUsers(prev =>
                                           prev.map(u => u.id === user.id ? { ...u, product: value } : u)
                                         );
@@ -429,31 +434,95 @@ function AdminContent() {
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <Input
-                                    key={`goal-${user.id}-${userGoal?.monthlyGoal || 'empty'}`}
                                     type="number"
                                     className="w-32 text-right"
                                     placeholder="$300,000"
-                                    defaultValue={userGoal?.monthlyGoal || ''}
-                                    onBlur={(e) => {
-                                      if (e.target.value) {
-                                        handleUpdateUserGoal(user.id, 'monthlyGoal', e.target.value);
-                                      }
-                                    }}
+                                    value={tempData.goal}
+                                    onChange={(e) => setTempGoals(prev => ({
+                                      ...prev,
+                                      [user.id]: { ...tempData, goal: e.target.value }
+                                    }))}
                                     step={10000}
                                   />
                                 </TableCell>
                                 <TableCell>
                                   <Input
-                                    key={`period-${user.id}-${userGoal?.period || 'empty'}`}
                                     type="month"
                                     className="w-40"
-                                    defaultValue={userGoal?.period || currentPeriod}
-                                    onChange={(e) => {
-                                      if (e.target.value) {
-                                        handleUpdateUserGoal(user.id, 'period', e.target.value);
+                                    value={tempData.period}
+                                    onChange={(e) => setTempGoals(prev => ({
+                                      ...prev,
+                                      [user.id]: { ...tempData, period: e.target.value }
+                                    }))}
+                                  />
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <Button
+                                    size="sm"
+                                    onClick={async () => {
+                                      if (!tempData.goal || !tempData.period) {
+                                        toast({
+                                          title: 'Error',
+                                          description: 'Por favor completa meta y periodo',
+                                          variant: 'destructive',
+                                        });
+                                        return;
+                                      }
+
+                                      if (!user.category) {
+                                        toast({
+                                          title: 'Error',
+                                          description: 'Primero asigna una categoría al usuario',
+                                          variant: 'destructive',
+                                        });
+                                        return;
+                                      }
+
+                                      try {
+                                        const goalToSave: UserGoalConfig = {
+                                          userId: user.id,
+                                          monthlyGoal: Number(tempData.goal),
+                                          category: user.category as UserCategory,
+                                          product: user.product,
+                                          period: tempData.period,
+                                        };
+
+                                        console.log('💾 Saving goal:', goalToSave);
+                                        await saveUserGoal(goalToSave);
+
+                                        // Update local state
+                                        const goalId = `${user.id}-${tempData.period}`;
+                                        setUserGoals(prev => {
+                                          const existing = prev.find(g => g.userId === user.id && g.period === tempData.period);
+                                          if (existing) {
+                                            return prev.map(g =>
+                                              g.userId === user.id && g.period === tempData.period
+                                                ? { ...goalToSave, id: goalId }
+                                                : g
+                                            );
+                                          } else {
+                                            return [...prev, { ...goalToSave, id: goalId }];
+                                          }
+                                        });
+
+                                        console.log('✅ Goal saved successfully to Firestore');
+
+                                        toast({
+                                          title: '✅ Meta guardada',
+                                          description: `Meta de ${formatCurrency(Number(tempData.goal))} guardada correctamente`,
+                                        });
+                                      } catch (error) {
+                                        console.error('❌ Error saving goal:', error);
+                                        toast({
+                                          title: 'Error',
+                                          description: 'No se pudo guardar la meta',
+                                          variant: 'destructive',
+                                        });
                                       }
                                     }}
-                                  />
+                                  >
+                                    💾 Guardar
+                                  </Button>
                                 </TableCell>
                               </TableRow>
                             );
