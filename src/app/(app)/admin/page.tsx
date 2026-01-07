@@ -30,6 +30,8 @@ import {
   initializeDefaultConfig,
   getAllUserGoals,
   saveUserGoal,
+  getAllUsers,
+  updateUserProfile,
 } from '@/lib/firestore-service';
 import type {
   GoalAchievementConfig,
@@ -37,7 +39,9 @@ import type {
   GrowthMultiplierConfig,
   UserGoalConfig,
   UserCategory,
+  ProductType,
 } from '@/lib/types';
+import { PRODUCTS } from '@/lib/types';
 import {
   GOAL_ACHIEVEMENT_LEVELS,
   QUALITY_MULTIPLIERS,
@@ -61,12 +65,14 @@ function AdminContent() {
   const [qualityMults, setQualityMults] = useState<QualityMultiplierConfig[]>([]);
   const [growthMults, setGrowthMults] = useState<GrowthMultiplierConfig[]>([]);
   const [userGoals, setUserGoals] = useState<(UserGoalConfig & { id: string })[]>([]);
+  const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
 
   // Nueva meta de usuario
   const [newGoal, setNewGoal] = useState({
     userId: '',
     monthlyGoal: 300000,
     category: 'G4' as UserCategory,
+    product: undefined as ProductType | undefined,
     period: new Date().toISOString().slice(0, 7),
   });
 
@@ -84,6 +90,9 @@ function AdminContent() {
 
       const goals = await getAllUserGoals();
       setUserGoals(goals);
+
+      const users = await getAllUsers();
+      setRegisteredUsers(users);
     } catch (error) {
       console.error('Error loading configurations:', error);
       toast({
@@ -251,13 +260,143 @@ function AdminContent() {
             </Button>
           </div>
 
-          <Tabs defaultValue="goal-levels" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="goal-levels">Niveles de Cumplimiento</TabsTrigger>
+          <Tabs defaultValue="registered-users" className="w-full">
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="registered-users">Usuarios Registrados</TabsTrigger>
+              <TabsTrigger value="goal-levels">Niveles</TabsTrigger>
               <TabsTrigger value="quality">Calidad</TabsTrigger>
               <TabsTrigger value="growth">Crecimiento</TabsTrigger>
-              <TabsTrigger value="users">Usuarios</TabsTrigger>
+              <TabsTrigger value="users">Metas</TabsTrigger>
             </TabsList>
+
+            {/* Registered Users */}
+            <TabsContent value="registered-users" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Usuarios Registrados en el Sistema
+                  </CardTitle>
+                  <CardDescription>
+                    Gestiona los usuarios registrados, sus categorías y productos
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {registeredUsers.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Nombre</TableHead>
+                            <TableHead>Email</TableHead>
+                            <TableHead>Rol</TableHead>
+                            <TableHead>Categoría</TableHead>
+                            <TableHead>Producto</TableHead>
+                            <TableHead>Acciones</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {registeredUsers.map((user) => (
+                            <TableRow key={user.id}>
+                              <TableCell className="font-medium">{user.name}</TableCell>
+                              <TableCell>{user.email}</TableCell>
+                              <TableCell>
+                                <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                                  {user.role}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                <Select
+                                  value={user.category || ''}
+                                  onValueChange={async (value) => {
+                                    try {
+                                      await updateUserProfile(user.id, { category: value });
+                                      await loadConfigurations();
+                                      toast({
+                                        title: 'Éxito',
+                                        description: 'Categoría actualizada',
+                                      });
+                                    } catch (error) {
+                                      toast({
+                                        title: 'Error',
+                                        description: 'No se pudo actualizar la categoría',
+                                        variant: 'destructive',
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="w-32">
+                                    <SelectValue placeholder="Seleccionar" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="G1">G1</SelectItem>
+                                    <SelectItem value="G2">G2</SelectItem>
+                                    <SelectItem value="G3">G3</SelectItem>
+                                    <SelectItem value="G4">G4 - Elite</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell>
+                                <Select
+                                  value={user.product || ''}
+                                  onValueChange={async (value) => {
+                                    try {
+                                      await updateUserProfile(user.id, { product: value });
+                                      await loadConfigurations();
+                                      toast({
+                                        title: 'Éxito',
+                                        description: 'Producto actualizado',
+                                      });
+                                    } catch (error) {
+                                      toast({
+                                        title: 'Error',
+                                        description: 'No se pudo actualizar el producto',
+                                        variant: 'destructive',
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <SelectTrigger className="w-48">
+                                    <SelectValue placeholder="Seleccionar producto" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {PRODUCTS.map((product) => (
+                                      <SelectItem key={product.value} value={product.value}>
+                                        {product.label}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setNewGoal({
+                                      ...newGoal,
+                                      userId: user.id,
+                                      category: (user.category as UserCategory) || 'G4',
+                                      product: user.product,
+                                    });
+                                  }}
+                                >
+                                  Asignar Meta
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      No hay usuarios registrados aún
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             {/* Goal Achievement Levels */}
             <TabsContent value="goal-levels" className="mt-6">
@@ -461,7 +600,7 @@ function AdminContent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                     <div className="space-y-2">
                       <Label htmlFor="userId">ID de Usuario</Label>
                       <Input
@@ -506,6 +645,27 @@ function AdminContent() {
                     </div>
 
                     <div className="space-y-2">
+                      <Label htmlFor="product">Producto</Label>
+                      <Select
+                        value={newGoal.product || ''}
+                        onValueChange={product =>
+                          setNewGoal({ ...newGoal, product: product as ProductType })
+                        }
+                      >
+                        <SelectTrigger id="product">
+                          <SelectValue placeholder="Seleccionar" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PRODUCTS.map((product) => (
+                            <SelectItem key={product.value} value={product.value}>
+                              {product.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
                       <Label htmlFor="period">Periodo</Label>
                       <Input
                         id="period"
@@ -538,6 +698,7 @@ function AdminContent() {
                             <TableHead>Usuario</TableHead>
                             <TableHead className="text-right">Meta Mensual</TableHead>
                             <TableHead>Categoría</TableHead>
+                            <TableHead>Producto</TableHead>
                             <TableHead>Periodo</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -550,6 +711,15 @@ function AdminContent() {
                               </TableCell>
                               <TableCell>
                                 <Badge variant="secondary">{goal.category}</Badge>
+                              </TableCell>
+                              <TableCell>
+                                {goal.product ? (
+                                  <Badge variant="outline">
+                                    {PRODUCTS.find(p => p.value === goal.product)?.label || goal.product}
+                                  </Badge>
+                                ) : (
+                                  <span className="text-muted-foreground text-sm">No asignado</span>
+                                )}
                               </TableCell>
                               <TableCell>{goal.period}</TableCell>
                             </TableRow>
