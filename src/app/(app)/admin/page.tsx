@@ -194,6 +194,13 @@ function AdminContent() {
           period: field === 'period' ? value : existingGoal.period,
         };
         await saveUserGoal(updatedGoal);
+
+        // Update local state only
+        setUserGoals(prev => prev.map(g =>
+          g.userId === userId && g.period === existingGoal.period
+            ? { ...g, ...updatedGoal }
+            : g
+        ));
       } else {
         // Create new goal
         const newGoal: UserGoalConfig = {
@@ -201,16 +208,14 @@ function AdminContent() {
           monthlyGoal: field === 'monthlyGoal' ? Number(value) : 300000,
           category: (user?.category as UserCategory) || 'G4',
           product: user?.product,
-          period: currentPeriod,
+          period: field === 'period' ? value : currentPeriod,
         };
         await saveUserGoal(newGoal);
-      }
 
-      await loadConfigurations();
-      toast({
-        title: 'Éxito',
-        description: 'Meta actualizada correctamente',
-      });
+        // Add to local state
+        const goalId = `${userId}-${newGoal.period}`;
+        setUserGoals(prev => [...prev, { ...newGoal, id: goalId }]);
+      }
     } catch (error) {
       console.error('Error updating goal:', error);
       toast({
@@ -353,11 +358,10 @@ function AdminContent() {
                                     onValueChange={async (value) => {
                                       try {
                                         await updateUserProfile(user.id, { category: value });
-                                        await loadConfigurations();
-                                        toast({
-                                          title: 'Éxito',
-                                          description: 'Categoría actualizada',
-                                        });
+                                        // Update local state only
+                                        setRegisteredUsers(prev =>
+                                          prev.map(u => u.id === user.id ? { ...u, category: value } : u)
+                                        );
                                       } catch (error) {
                                         toast({
                                           title: 'Error',
@@ -384,11 +388,10 @@ function AdminContent() {
                                     onValueChange={async (value) => {
                                       try {
                                         await updateUserProfile(user.id, { product: value });
-                                        await loadConfigurations();
-                                        toast({
-                                          title: 'Éxito',
-                                          description: 'Producto actualizado',
-                                        });
+                                        // Update local state only
+                                        setRegisteredUsers(prev =>
+                                          prev.map(u => u.id === user.id ? { ...u, product: value } : u)
+                                        );
                                       } catch (error) {
                                         toast({
                                           title: 'Error',
@@ -429,8 +432,10 @@ function AdminContent() {
                                     type="month"
                                     className="w-40"
                                     defaultValue={userGoal?.period || currentPeriod}
-                                    onBlur={(e) => {
-                                      handleUpdateUserGoal(user.id, 'period', e.target.value);
+                                    onChange={(e) => {
+                                      if (e.target.value) {
+                                        handleUpdateUserGoal(user.id, 'period', e.target.value);
+                                      }
                                     }}
                                   />
                                 </TableCell>

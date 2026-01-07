@@ -22,7 +22,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 
 const navItems = [
-  { href: '/', label: 'Inicio', icon: Home },
   { href: '/originadores', label: 'Calculadora', icon: Sparkles },
   { href: '/proyecciones', label: 'Proyecciones', icon: LineChart },
 ];
@@ -47,8 +46,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                 </div>
 
                 <div className="flex flex-col">
-                  <span className="font-headline text-xl font-semibold">
-                    Aviva Móvil
+                  <span className="font-headline text-base font-semibold">
+                    Calculadora de incentivos Aviva
                   </span>
                   <span className="text-xs text-muted-foreground">
                     Originadores de Excelencia
