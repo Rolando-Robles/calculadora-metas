@@ -218,7 +218,7 @@ export default function ProyeccionesPage() {
             <Sparkles className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Proyecciones Inspiracionales</h1>
+            <h1 className="text-2xl font-bold">¿Cuánto quiero ganar en incentivos?</h1>
             <p className="text-sm text-white/90">
               Define tu meta y descubre cómo alcanzarla
             </p>
