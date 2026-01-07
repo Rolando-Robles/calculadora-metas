@@ -1,11 +1,8 @@
-import type { Metadata } from 'next';
+'use client';
+
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-
-export const metadata: Metadata = {
-  title: 'Aviva Móvil',
-  description: 'Calculadora Comercial Aviva para vendedores de kiosco/campo.',
-};
+import { AuthProvider } from '@/contexts/AuthContext';
 
 export default function RootLayout({
   children,
@@ -18,10 +15,13 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <title>Aviva Móvil - Calculadora de Incentivos</title>
       </head>
       <body className="font-body antialiased">
-        {children}
-        <Toaster />
+        <AuthProvider>
+          {children}
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );
