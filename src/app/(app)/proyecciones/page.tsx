@@ -103,53 +103,50 @@ export default function ProyeccionesPage() {
     const newScenarios: Scenario[] = [];
     const userCategory = userGoal.category || 'G4';
 
-    // Scenario 1: Conservative - Higher colocación, basic multipliers
+    // Scenario 1: Conservative - Realistic baseline with basic performance
     const conservative = generateScenario(
       targetBonus,
       userCategory as UserCategory,
       'B' as QualityMultiplier,
-      'B' as GrowthMultiplier,
-      1.0,
+      'C' as GrowthMultiplier,
       userGoal.monthlyGoal
     );
     newScenarios.push({
       name: 'Escenario Conservador',
       icon: <Target className="h-5 w-5" />,
-      description: 'Mayor colocación con multiplicadores básicos. Enfoque en volumen.',
+      description: 'Mayor colocación requerida. Calidad estándar y crecimiento modesto.',
       ...conservative,
       color: 'bg-blue-500',
     });
 
-    // Scenario 2: Balanced - Moderate colocación, better quality
+    // Scenario 2: Balanced - Most common scenario with good baseline
     const balanced = generateScenario(
       targetBonus,
       userCategory as UserCategory,
-      'A' as QualityMultiplier,
+      'B' as QualityMultiplier,
       'B' as GrowthMultiplier,
-      0.85,
       userGoal.monthlyGoal
     );
     newScenarios.push({
       name: 'Escenario Balanceado',
       icon: <TrendingUp className="h-5 w-5" />,
-      description: 'Equilibrio entre colocación y calidad. Estrategia mixta.',
+      description: 'Colocación moderada. Calidad y crecimiento estándar (más común).',
       ...balanced,
       color: 'bg-primary',
     });
 
-    // Scenario 3: Optimized - Best multipliers, lower colocación
+    // Scenario 3: Optimized - Best realistic performance
     const optimized = generateScenario(
       targetBonus,
       userCategory as UserCategory,
       'A' as QualityMultiplier,
-      'A' as GrowthMultiplier,
-      0.73,
+      'B' as GrowthMultiplier,
       userGoal.monthlyGoal
     );
     newScenarios.push({
       name: 'Escenario Optimizado',
       icon: <Zap className="h-5 w-5" />,
-      description: 'Maximiza calidad y crecimiento. Menor colocación requerida.',
+      description: 'Menor colocación. Excelente calidad con crecimiento estándar.',
       ...optimized,
       color: 'bg-secondary',
     });
@@ -162,23 +159,19 @@ export default function ProyeccionesPage() {
     category: UserCategory,
     quality: QualityMultiplier,
     growth: GrowthMultiplier,
-    multiplier: number,
     userMeta: number
   ) => {
-    // Use binary search to find the colocación that gives us the target bonus
-    const qualityValues = { A: 1.2, B: 1.0, C: 0.6, D: 0.0 };
-    const growthValues = { A: 1.15, B: 1.0, C: 0.8, D: 0.6 };
-
-    // Start with a rough estimate
-    let low = target * 0.5; // Lower bound
-    let high = target * 50; // Upper bound
+    // Use binary search to find the exact colocación that gives us the target bonus
+    let low = target * 0.1; // Lower bound - start conservatively
+    let high = target * 100; // Upper bound - very high to ensure we find it
     let bestColocacion = high;
     let bestDifference = Infinity;
     let iterations = 0;
-    const maxIterations = 50;
+    const maxIterations = 100; // Increased for better precision
+    const tolerance = 100; // Accept if we're within $100 of target
 
-    // Binary search for the colocación that produces the closest bonus to target
-    while (iterations < maxIterations && (high - low) > 1000) {
+    // Binary search for the colocación that produces the exact target bonus
+    while (iterations < maxIterations && (high - low) > tolerance) {
       const mid = (low + high) / 2;
       const testCalculation = calculateFinalBonus(mid, userMeta, category, quality, growth);
       const difference = Math.abs(testCalculation.bonusFinal - target);
@@ -186,6 +179,12 @@ export default function ProyeccionesPage() {
       if (difference < bestDifference) {
         bestDifference = difference;
         bestColocacion = mid;
+      }
+
+      // If we're very close, we can stop
+      if (difference < tolerance) {
+        bestColocacion = mid;
+        break;
       }
 
       if (testCalculation.bonusFinal < target) {
@@ -196,13 +195,10 @@ export default function ProyeccionesPage() {
       iterations++;
     }
 
-    // Apply scenario multiplier for variation
-    bestColocacion = bestColocacion * multiplier;
-
-    // Round to nice numbers
+    // Round to nice numbers (nearest 10,000)
     bestColocacion = Math.round(bestColocacion / 10000) * 10000;
 
-    // Calculate final bonus with the found colocación
+    // Calculate final bonus with the rounded colocación
     const finalCalculation = calculateFinalBonus(
       bestColocacion,
       userMeta,
