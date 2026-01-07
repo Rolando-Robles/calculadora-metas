@@ -8,40 +8,41 @@ body {
 
 @layer base {
   :root {
-    --background: 222 83% 98%;
-    --foreground: 224 71.4% 4.1%;
+    /* Aviva Teal/Green color scheme */
+    --background: 0 0% 100%;
+    --foreground: 180 30% 15%;
     --card: 0 0% 100%;
-    --card-foreground: 224 71.4% 4.1%;
+    --card-foreground: 180 30% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 224 71.4% 4.1%;
-    --primary: 228 100% 59%;
-    --primary-foreground: 210 20% 98%;
-    --secondary: 258 75% 61%;
-    --secondary-foreground: 210 20% 98%;
-    --muted: 220 14.3% 95.9%;
-    --muted-foreground: 220 8.9% 46.1%;
-    --accent: 153 100% 39%;
-    --accent-foreground: 210 20% 98%;
+    --popover-foreground: 180 30% 15%;
+    --primary: 174 65% 41%; /* Aviva Teal */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 147 100% 35%; /* Aviva Green */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 174 20% 96%;
+    --muted-foreground: 174 10% 45%;
+    --accent: 147 100% 35%; /* Bright Green */
+    --accent-foreground: 0 0% 100%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
-    --ring: 228 100% 59%;
-    --radius: 0.5rem;
-    --chart-1: 153 100% 39%;
-    --chart-2: 258 75% 61%;
-    --chart-3: 197 37% 24%;
+    --border: 174 15% 88%;
+    --input: 174 15% 88%;
+    --ring: 174 65% 41%;
+    --radius: 0.75rem;
+    --chart-1: 174 65% 41%;
+    --chart-2: 147 100% 35%;
+    --chart-3: 180 50% 30%;
     --chart-4: 43 74% 66%;
     --chart-5: 27 87% 67%;
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 224 71.4% 4.1%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 228 100% 59%;
-    --sidebar-accent: 228 100% 97%;
-    --sidebar-accent-foreground: 228 100% 59%;
-    --sidebar-primary: 228 100% 59%;
-    --sidebar-primary-foreground: 210 20% 98%;
+    --sidebar-foreground: 180 30% 15%;
+    --sidebar-border: 174 15% 88%;
+    --sidebar-ring: 174 65% 41%;
+    --sidebar-accent: 174 65% 95%;
+    --sidebar-accent-foreground: 174 65% 41%;
+    --sidebar-primary: 174 65% 41%;
+    --sidebar-primary-foreground: 0 0% 100%;
   }
 
   .dark {

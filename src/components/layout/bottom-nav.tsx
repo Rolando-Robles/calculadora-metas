@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Calculator, Trophy, User } from 'lucide-react';
+import { Home, Sparkles, LineChart, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/', label: 'Inicio', icon: Home },
-  { href: '/simular', label: 'Simular', icon: Calculator },
-  { href: '/incentivos', label: 'Incentivos', icon: Trophy },
+  { href: '/originadores', label: 'Calculadora', icon: Sparkles },
+  { href: '/proyecciones', label: 'Proyecciones', icon: LineChart },
+  { href: '/configuracion', label: 'Config', icon: Settings },
 ];
 
 export function BottomNav() {
@@ -16,7 +17,7 @@ export function BottomNav() {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 h-20 border-t bg-card md:hidden">
-      <div className="mx-auto grid h-full max-w-lg grid-cols-3 font-medium">
+      <div className="mx-auto grid h-full max-w-lg grid-cols-4 font-medium">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (
