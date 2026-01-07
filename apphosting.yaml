@@ -13,6 +13,16 @@ runConfig:
   cpu: 1
   memoryMiB: 512
 
-# NOTA: Las variables de entorno se configuran en Firebase Console
-# App Hosting > Backend > Entorno > Variables de entorno
-# NO se declaran en este archivo
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: AIzaSyBNQUQjjzw7mGpk1bhARhiQco_f8ncl9TQ
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: studio-8143131557-91b6c.firebaseapp.com
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: studio-8143131557-91b6c
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: studio-8143131557-91b6c.firebasestorage.app
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "977280040136"
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: 1:977280040136:web:c810a0582e7c29d70379fd
