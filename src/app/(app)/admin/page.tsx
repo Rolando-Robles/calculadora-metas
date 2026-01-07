@@ -67,6 +67,7 @@ function AdminContent() {
   const [userGoals, setUserGoals] = useState<(UserGoalConfig & { id: string })[]>([]);
   const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
   const [editingGoal, setEditingGoal] = useState<{[key: string]: any}>({});
+  const [selectedProductFilter, setSelectedProductFilter] = useState<string>('all');
 
   useEffect(() => {
     loadConfigurations();
@@ -238,6 +239,10 @@ function AdminContent() {
       minimumFractionDigits: 0,
     }).format(value);
 
+  const filteredUsers = selectedProductFilter === 'all'
+    ? registeredUsers
+    : registeredUsers.filter(user => user.product === selectedProductFilter);
+
   return (
     <div className="flex flex-col h-full bg-background">
       <header className="sticky top-0 z-10 border-b bg-gradient-to-r from-primary to-secondary p-6 text-white">
@@ -289,6 +294,32 @@ function AdminContent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  {/* Product Filter */}
+                  <div className="mb-6 flex items-center gap-4">
+                    <Label htmlFor="product-filter" className="text-sm font-medium">
+                      Filtrar por Producto:
+                    </Label>
+                    <Select
+                      value={selectedProductFilter}
+                      onValueChange={setSelectedProductFilter}
+                    >
+                      <SelectTrigger id="product-filter" className="w-64">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos los productos</SelectItem>
+                        {PRODUCTS.map((product) => (
+                          <SelectItem key={product.value} value={product.value}>
+                            {product.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Badge variant="outline" className="ml-2">
+                      {filteredUsers.length} usuario{filteredUsers.length !== 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+
                   {registeredUsers.length > 0 ? (
                     <div className="overflow-x-auto">
                       <Table>
@@ -304,7 +335,7 @@ function AdminContent() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {registeredUsers.map((user) => {
+                          {filteredUsers.map((user) => {
                             const userGoal = getUserGoal(user.id);
                             const currentPeriod = new Date().toISOString().slice(0, 7);
                             return (
@@ -384,9 +415,11 @@ function AdminContent() {
                                     type="number"
                                     className="w-32 text-right"
                                     placeholder="$300,000"
-                                    value={userGoal?.monthlyGoal || ''}
-                                    onChange={(e) => {
-                                      handleUpdateUserGoal(user.id, 'monthlyGoal', e.target.value);
+                                    defaultValue={userGoal?.monthlyGoal || ''}
+                                    onBlur={(e) => {
+                                      if (e.target.value) {
+                                        handleUpdateUserGoal(user.id, 'monthlyGoal', e.target.value);
+                                      }
                                     }}
                                     step={10000}
                                   />
@@ -395,8 +428,8 @@ function AdminContent() {
                                   <Input
                                     type="month"
                                     className="w-40"
-                                    value={userGoal?.period || currentPeriod}
-                                    onChange={(e) => {
+                                    defaultValue={userGoal?.period || currentPeriod}
+                                    onBlur={(e) => {
                                       handleUpdateUserGoal(user.id, 'period', e.target.value);
                                     }}
                                   />
