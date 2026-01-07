@@ -43,6 +43,90 @@ const formatPercentage = (value: number) => {
   return `${value.toFixed(1)}%`;
 };
 
+const getMotivationalMessage = (
+  bonusFinal: number,
+  achievementPercentage: number,
+  qualityMultiplier: QualityMultiplier,
+  growthMultiplier: GrowthMultiplier
+) => {
+  const hasWinning = bonusFinal > 0;
+  const lowQuality = qualityMultiplier === 'C' || qualityMultiplier === 'D';
+  const lowGrowth = growthMultiplier === 'C' || growthMultiplier === 'D';
+  const lowSales = achievementPercentage < 100;
+
+  if (hasWinning) {
+    if (achievementPercentage >= 200) {
+      return {
+        title: '🏆 ¡Elite Extraordinario!',
+        message: '¡Estás dominando el juego! Tu desempeño supera todas las expectativas. Sigue así y alcanzarás la grandeza.',
+      };
+    } else if (achievementPercentage >= 150) {
+      return {
+        title: '🌟 ¡Sobresaliente!',
+        message: '¡Excelente trabajo! Estás muy por encima de tu meta. Tu dedicación está dando frutos increíbles.',
+      };
+    } else if (achievementPercentage >= 120) {
+      return {
+        title: '💪 ¡Dominado!',
+        message: '¡Muy bien! Has superado tu meta con creces. Continúa con este impulso ganador.',
+      };
+    } else if (achievementPercentage >= 100) {
+      return {
+        title: '✅ ¡Cumplido!',
+        message: 'Has alcanzado tu meta. Buen trabajo. Ahora apunta más alto para alcanzar el siguiente nivel.',
+      };
+    } else {
+      return {
+        title: '🎯 En Juego',
+        message: 'Estás en camino. Sigue esforzándote para alcanzar tu meta y maximizar tu bono.',
+      };
+    }
+  } else {
+    // No hay ganancia - mensajes específicos según qué está fallando
+    if (lowQuality && lowGrowth && lowSales) {
+      return {
+        title: '⚠️ Atención Requerida',
+        message: 'Necesitas mejorar en todos los aspectos: aumenta tu colocación, mejora la calidad de tus créditos y trabaja en el crecimiento de tu cartera. ¡Tú puedes lograrlo!',
+      };
+    } else if (lowQuality && lowGrowth) {
+      return {
+        title: '📊 Mejora Calidad y Crecimiento',
+        message: 'Tu colocación está bien, pero necesitas mejorar la calidad de tus créditos y el crecimiento de tu cartera para obtener mejores bonos.',
+      };
+    } else if (lowQuality && lowSales) {
+      return {
+        title: '🎯 Aumenta Ventas y Calidad',
+        message: 'Concéntrate en alcanzar tu meta de colocación y asegúrate de que cada crédito sea de la más alta calidad.',
+      };
+    } else if (lowGrowth && lowSales) {
+      return {
+        title: '📈 Impulsa Ventas y Cartera',
+        message: 'Necesitas incrementar tu colocación y trabajar en el crecimiento de tu cartera. Enfócate en renovaciones y lealtad de clientes.',
+      };
+    } else if (lowQuality) {
+      return {
+        title: '⭐ Mejora la Calidad',
+        message: 'El bono no se pierde por vender poco, se pierde por vender mal. La mejor originación se traduce en la mejor cobranza.',
+      };
+    } else if (lowGrowth) {
+      return {
+        title: '🌱 Impulsa el Crecimiento',
+        message: 'Tu calidad es buena, pero necesitas trabajar en el crecimiento de tu cartera. Enfócate en renovaciones y en la lealtad del cliente.',
+      };
+    } else if (lowSales) {
+      return {
+        title: '🚀 Acelera las Ventas',
+        message: 'Tu calidad y crecimiento están bien, pero necesitas aumentar tu colocación para alcanzar tu meta. ¡Dale un empujón final!',
+      };
+    } else {
+      return {
+        title: '💡 Revisa tus Números',
+        message: 'Aunque tus indicadores parecen buenos, tu bono es cero. Verifica que todos los multiplicadores estén configurados correctamente.',
+      };
+    }
+  }
+};
+
 export default function OriginadoresPage() {
   const [colocacion, setColocacion] = useState(300000);
   const [meta, setMeta] = useState(300000);
@@ -53,6 +137,15 @@ export default function OriginadoresPage() {
   const calculation = useMemo(() => {
     return calculateFinalBonus(colocacion, meta, category, qualityMultiplier, growthMultiplier);
   }, [colocacion, meta, category, qualityMultiplier, growthMultiplier]);
+
+  const motivationalMessage = useMemo(() => {
+    return getMotivationalMessage(
+      calculation.bonusFinal,
+      calculation.achievementPercentage,
+      qualityMultiplier,
+      growthMultiplier
+    );
+  }, [calculation.bonusFinal, calculation.achievementPercentage, qualityMultiplier, growthMultiplier]);
 
   const achievementLevelConfig = GOAL_ACHIEVEMENT_LEVELS.find(
     l => l.level === calculation.achievementLevel
@@ -146,33 +239,6 @@ export default function OriginadoresPage() {
                     <Slider
                       value={[colocacion]}
                       onValueChange={v => setColocacion(v[0])}
-                      max={1000000}
-                      step={10000}
-                      className="h-6"
-                    />
-                  </div>
-
-                  {/* Meta */}
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-end">
-                      <Label htmlFor="meta" className="text-base font-medium">
-                        Meta Mensual
-                      </Label>
-                      <span className="text-xl font-bold text-primary">
-                        {formatCurrency(meta)}
-                      </span>
-                    </div>
-                    <Input
-                      id="meta"
-                      type="number"
-                      value={meta}
-                      onChange={e => setMeta(Number(e.target.value))}
-                      className="text-lg"
-                      step={10000}
-                    />
-                    <Slider
-                      value={[meta]}
-                      onValueChange={v => setMeta(v[0])}
                       max={1000000}
                       step={10000}
                       className="h-6"
@@ -307,19 +373,13 @@ export default function OriginadoresPage() {
                 </CardContent>
               </Card>
 
-              {/* Example Display */}
+              {/* Motivational Message */}
               <Card className="border-primary/30">
                 <CardHeader>
-                  <CardTitle className="text-base">
-                    {calculation.bonusFinal > 0 ? '✅ Ganador' : '❌ Sin Ganancia'}
-                  </CardTitle>
+                  <CardTitle className="text-base">{motivationalMessage.title}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    {calculation.bonusFinal > 0
-                      ? 'Este nivel sí justifica el desempeño extraordinario.'
-                      : 'El bono no se pierde por vender poco, se pierde por vender mal.'}
-                  </p>
+                  <p className="text-sm text-muted-foreground">{motivationalMessage.message}</p>
                 </CardContent>
               </Card>
             </div>
