@@ -66,15 +66,7 @@ function AdminContent() {
   const [growthMults, setGrowthMults] = useState<GrowthMultiplierConfig[]>([]);
   const [userGoals, setUserGoals] = useState<(UserGoalConfig & { id: string })[]>([]);
   const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
-
-  // Nueva meta de usuario
-  const [newGoal, setNewGoal] = useState({
-    userId: '',
-    monthlyGoal: 300000,
-    category: 'G4' as UserCategory,
-    product: undefined as ProductType | undefined,
-    period: new Date().toISOString().slice(0, 7),
-  });
+  const [editingGoal, setEditingGoal] = useState<{[key: string]: any}>({});
 
   useEffect(() => {
     loadConfigurations();
@@ -180,33 +172,49 @@ function AdminContent() {
     setGrowthMults(updated);
   };
 
-  const handleAddUserGoal = async () => {
-    if (!newGoal.userId) {
-      toast({
-        title: 'Error',
-        description: 'Por favor ingresa un ID de usuario',
-        variant: 'destructive',
-      });
-      return;
-    }
+  const getUserGoal = (userId: string) => {
+    const currentPeriod = new Date().toISOString().slice(0, 7);
+    return userGoals.find(g => g.userId === userId && g.period === currentPeriod);
+  };
 
+  const handleUpdateUserGoal = async (userId: string, field: string, value: any) => {
     try {
-      await saveUserGoal(newGoal);
+      const currentPeriod = new Date().toISOString().slice(0, 7);
+      const existingGoal = getUserGoal(userId);
+      const user = registeredUsers.find(u => u.id === userId);
+
+      if (existingGoal) {
+        // Update existing goal
+        const updatedGoal: UserGoalConfig = {
+          userId,
+          monthlyGoal: field === 'monthlyGoal' ? Number(value) : existingGoal.monthlyGoal,
+          category: field === 'category' ? value : existingGoal.category,
+          product: field === 'product' ? value : existingGoal.product,
+          period: field === 'period' ? value : existingGoal.period,
+        };
+        await saveUserGoal(updatedGoal);
+      } else {
+        // Create new goal
+        const newGoal: UserGoalConfig = {
+          userId,
+          monthlyGoal: field === 'monthlyGoal' ? Number(value) : 300000,
+          category: (user?.category as UserCategory) || 'G4',
+          product: user?.product,
+          period: currentPeriod,
+        };
+        await saveUserGoal(newGoal);
+      }
+
       await loadConfigurations();
       toast({
         title: 'Éxito',
-        description: `Meta configurada para usuario ${newGoal.userId}`,
-      });
-      setNewGoal({
-        userId: '',
-        monthlyGoal: 300000,
-        category: 'G4',
-        period: new Date().toISOString().slice(0, 7),
+        description: 'Meta actualizada correctamente',
       });
     } catch (error) {
+      console.error('Error updating goal:', error);
       toast({
         title: 'Error',
-        description: 'No se pudo guardar la meta',
+        description: 'No se pudo actualizar la meta',
         variant: 'destructive',
       });
     }
@@ -260,25 +268,24 @@ function AdminContent() {
             </Button>
           </div>
 
-          <Tabs defaultValue="registered-users" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
-              <TabsTrigger value="registered-users">Usuarios Registrados</TabsTrigger>
+          <Tabs defaultValue="users" className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="users">Usuarios y Metas</TabsTrigger>
               <TabsTrigger value="goal-levels">Niveles</TabsTrigger>
               <TabsTrigger value="quality">Calidad</TabsTrigger>
               <TabsTrigger value="growth">Crecimiento</TabsTrigger>
-              <TabsTrigger value="users">Metas</TabsTrigger>
             </TabsList>
 
-            {/* Registered Users */}
-            <TabsContent value="registered-users" className="mt-6">
+            {/* Users and Goals Combined */}
+            <TabsContent value="users" className="mt-6">
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
-                    Usuarios Registrados en el Sistema
+                    Gestión de Usuarios y Metas
                   </CardTitle>
                   <CardDescription>
-                    Gestiona los usuarios registrados, sus categorías y productos
+                    Administra usuarios, categorías, productos y metas mensuales en un solo lugar
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -292,100 +299,111 @@ function AdminContent() {
                             <TableHead>Rol</TableHead>
                             <TableHead>Categoría</TableHead>
                             <TableHead>Producto</TableHead>
-                            <TableHead>Acciones</TableHead>
+                            <TableHead className="text-right">Meta Mensual</TableHead>
+                            <TableHead>Periodo</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {registeredUsers.map((user) => (
-                            <TableRow key={user.id}>
-                              <TableCell className="font-medium">{user.name}</TableCell>
-                              <TableCell>{user.email}</TableCell>
-                              <TableCell>
-                                <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                                  {user.role}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <Select
-                                  value={user.category || ''}
-                                  onValueChange={async (value) => {
-                                    try {
-                                      await updateUserProfile(user.id, { category: value });
-                                      await loadConfigurations();
-                                      toast({
-                                        title: 'Éxito',
-                                        description: 'Categoría actualizada',
-                                      });
-                                    } catch (error) {
-                                      toast({
-                                        title: 'Error',
-                                        description: 'No se pudo actualizar la categoría',
-                                        variant: 'destructive',
-                                      });
-                                    }
-                                  }}
-                                >
-                                  <SelectTrigger className="w-32">
-                                    <SelectValue placeholder="Seleccionar" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="G1">G1</SelectItem>
-                                    <SelectItem value="G2">G2</SelectItem>
-                                    <SelectItem value="G3">G3</SelectItem>
-                                    <SelectItem value="G4">G4 - Elite</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-                              <TableCell>
-                                <Select
-                                  value={user.product || ''}
-                                  onValueChange={async (value) => {
-                                    try {
-                                      await updateUserProfile(user.id, { product: value });
-                                      await loadConfigurations();
-                                      toast({
-                                        title: 'Éxito',
-                                        description: 'Producto actualizado',
-                                      });
-                                    } catch (error) {
-                                      toast({
-                                        title: 'Error',
-                                        description: 'No se pudo actualizar el producto',
-                                        variant: 'destructive',
-                                      });
-                                    }
-                                  }}
-                                >
-                                  <SelectTrigger className="w-48">
-                                    <SelectValue placeholder="Seleccionar producto" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {PRODUCTS.map((product) => (
-                                      <SelectItem key={product.value} value={product.value}>
-                                        {product.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setNewGoal({
-                                      ...newGoal,
-                                      userId: user.id,
-                                      category: (user.category as UserCategory) || 'G4',
-                                      product: user.product,
-                                    });
-                                  }}
-                                >
-                                  Asignar Meta
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {registeredUsers.map((user) => {
+                            const userGoal = getUserGoal(user.id);
+                            const currentPeriod = new Date().toISOString().slice(0, 7);
+                            return (
+                              <TableRow key={user.id}>
+                                <TableCell className="font-medium">{user.name}</TableCell>
+                                <TableCell className="text-sm">{user.email}</TableCell>
+                                <TableCell>
+                                  <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                                    {user.role}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Select
+                                    value={user.category || ''}
+                                    onValueChange={async (value) => {
+                                      try {
+                                        await updateUserProfile(user.id, { category: value });
+                                        await loadConfigurations();
+                                        toast({
+                                          title: 'Éxito',
+                                          description: 'Categoría actualizada',
+                                        });
+                                      } catch (error) {
+                                        toast({
+                                          title: 'Error',
+                                          description: 'No se pudo actualizar la categoría',
+                                          variant: 'destructive',
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-32">
+                                      <SelectValue placeholder="Seleccionar" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="G1">G1</SelectItem>
+                                      <SelectItem value="G2">G2</SelectItem>
+                                      <SelectItem value="G3">G3</SelectItem>
+                                      <SelectItem value="G4">G4 - Elite</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                                <TableCell>
+                                  <Select
+                                    value={user.product || ''}
+                                    onValueChange={async (value) => {
+                                      try {
+                                        await updateUserProfile(user.id, { product: value });
+                                        await loadConfigurations();
+                                        toast({
+                                          title: 'Éxito',
+                                          description: 'Producto actualizado',
+                                        });
+                                      } catch (error) {
+                                        toast({
+                                          title: 'Error',
+                                          description: 'No se pudo actualizar el producto',
+                                          variant: 'destructive',
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <SelectTrigger className="w-40">
+                                      <SelectValue placeholder="Seleccionar" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {PRODUCTS.map((product) => (
+                                        <SelectItem key={product.value} value={product.value}>
+                                          {product.label}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <Input
+                                    type="number"
+                                    className="w-32 text-right"
+                                    placeholder="$300,000"
+                                    value={userGoal?.monthlyGoal || ''}
+                                    onChange={(e) => {
+                                      handleUpdateUserGoal(user.id, 'monthlyGoal', e.target.value);
+                                    }}
+                                    step={10000}
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <Input
+                                    type="month"
+                                    className="w-40"
+                                    value={userGoal?.period || currentPeriod}
+                                    onChange={(e) => {
+                                      handleUpdateUserGoal(user.id, 'period', e.target.value);
+                                    }}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     </div>
@@ -583,155 +601,6 @@ function AdminContent() {
                       </div>
                     ))}
                   </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* User Goals */}
-            <TabsContent value="users" className="mt-6 space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Agregar Meta de Usuario
-                  </CardTitle>
-                  <CardDescription>
-                    Configura la meta mensual y categoría para un usuario específico
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-                    <div className="space-y-2">
-                      <Label htmlFor="userId">ID de Usuario</Label>
-                      <Input
-                        id="userId"
-                        placeholder="user-001"
-                        value={newGoal.userId}
-                        onChange={e => setNewGoal({ ...newGoal, userId: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="monthlyGoal">Meta Mensual</Label>
-                      <Input
-                        id="monthlyGoal"
-                        type="number"
-                        value={newGoal.monthlyGoal}
-                        onChange={e =>
-                          setNewGoal({ ...newGoal, monthlyGoal: Number(e.target.value) })
-                        }
-                        step={10000}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="category">Categoría</Label>
-                      <Select
-                        value={newGoal.category}
-                        onValueChange={category =>
-                          setNewGoal({ ...newGoal, category: category as UserCategory })
-                        }
-                      >
-                        <SelectTrigger id="category">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="G1">G1</SelectItem>
-                          <SelectItem value="G2">G2</SelectItem>
-                          <SelectItem value="G3">G3</SelectItem>
-                          <SelectItem value="G4">G4 - Elite</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="product">Producto</Label>
-                      <Select
-                        value={newGoal.product || ''}
-                        onValueChange={product =>
-                          setNewGoal({ ...newGoal, product: product as ProductType })
-                        }
-                      >
-                        <SelectTrigger id="product">
-                          <SelectValue placeholder="Seleccionar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {PRODUCTS.map((product) => (
-                            <SelectItem key={product.value} value={product.value}>
-                              {product.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="period">Periodo</Label>
-                      <Input
-                        id="period"
-                        type="month"
-                        value={newGoal.period}
-                        onChange={e => setNewGoal({ ...newGoal, period: e.target.value })}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-4">
-                    <Button onClick={handleAddUserGoal} className="w-full">
-                      Agregar Meta
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Metas Configuradas</CardTitle>
-                  <CardDescription>Lista de todas las metas de usuarios activas</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {userGoals.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Usuario</TableHead>
-                            <TableHead className="text-right">Meta Mensual</TableHead>
-                            <TableHead>Categoría</TableHead>
-                            <TableHead>Producto</TableHead>
-                            <TableHead>Periodo</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {userGoals.map((goal, index) => (
-                            <TableRow key={index}>
-                              <TableCell className="font-medium">{goal.userId}</TableCell>
-                              <TableCell className="text-right">
-                                {formatCurrency(goal.monthlyGoal)}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="secondary">{goal.category}</Badge>
-                              </TableCell>
-                              <TableCell>
-                                {goal.product ? (
-                                  <Badge variant="outline">
-                                    {PRODUCTS.find(p => p.value === goal.product)?.label || goal.product}
-                                  </Badge>
-                                ) : (
-                                  <span className="text-muted-foreground text-sm">No asignado</span>
-                                )}
-                              </TableCell>
-                              <TableCell>{goal.period}</TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      No hay metas configuradas aún
-                    </div>
-                  )}
                 </CardContent>
               </Card>
             </TabsContent>

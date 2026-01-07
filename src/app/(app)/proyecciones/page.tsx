@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -19,8 +19,10 @@ import type {
   QualityMultiplier,
   GrowthMultiplier,
 } from '@/lib/types';
-import { Sparkles, Target, TrendingUp, Zap } from 'lucide-react';
+import { Sparkles, Target, TrendingUp, Zap, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useAuth } from '@/contexts/AuthContext';
+import { getUserGoals } from '@/lib/firestore-service';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('es-MX', {
@@ -46,19 +48,48 @@ interface Scenario {
 }
 
 export default function ProyeccionesPage() {
+  const { user, userProfile } = useAuth();
   const [targetBonus, setTargetBonus] = useState<number>(50000);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [userGoal, setUserGoal] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadUserGoal = async () => {
+      if (!user) return;
+
+      try {
+        setLoading(true);
+        const goals = await getUserGoals(user.uid);
+        const currentPeriod = new Date().toISOString().slice(0, 7);
+        const currentGoal = goals.find(g => g.period === currentPeriod);
+        setUserGoal(currentGoal || null);
+      } catch (error) {
+        console.error('Error loading user goal:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadUserGoal();
+  }, [user]);
 
   const generateScenarios = () => {
+    if (!userGoal) {
+      return;
+    }
+
     const newScenarios: Scenario[] = [];
+    const userCategory = userGoal.category || 'G4';
 
     // Scenario 1: Conservative - Higher colocación, basic multipliers
     const conservative = generateScenario(
       targetBonus,
-      'G4' as UserCategory,
+      userCategory as UserCategory,
       'B' as QualityMultiplier,
       'B' as GrowthMultiplier,
-      1.0
+      1.0,
+      userGoal.monthlyGoal
     );
     newScenarios.push({
       name: 'Escenario Conservador',
@@ -71,10 +102,11 @@ export default function ProyeccionesPage() {
     // Scenario 2: Balanced - Moderate colocación, better quality
     const balanced = generateScenario(
       targetBonus,
-      'G4' as UserCategory,
+      userCategory as UserCategory,
       'A' as QualityMultiplier,
       'B' as GrowthMultiplier,
-      0.85
+      0.85,
+      userGoal.monthlyGoal
     );
     newScenarios.push({
       name: 'Escenario Balanceado',
@@ -87,10 +119,11 @@ export default function ProyeccionesPage() {
     // Scenario 3: Optimized - Best multipliers, lower colocación
     const optimized = generateScenario(
       targetBonus,
-      'G4' as UserCategory,
+      userCategory as UserCategory,
       'A' as QualityMultiplier,
       'A' as GrowthMultiplier,
-      0.73
+      0.73,
+      userGoal.monthlyGoal
     );
     newScenarios.push({
       name: 'Escenario Optimizado',
@@ -108,7 +141,8 @@ export default function ProyeccionesPage() {
     category: UserCategory,
     quality: QualityMultiplier,
     growth: GrowthMultiplier,
-    multiplier: number
+    multiplier: number,
+    userMeta: number
   ) => {
     // Estimate colocación needed based on target bonus
     // Working backwards from: bonus = colocación × bonusBase% × quality × growth
@@ -127,20 +161,16 @@ export default function ProyeccionesPage() {
     // Round to nice numbers
     estimatedColocacion = Math.ceil(estimatedColocacion / 10000) * 10000;
 
-    // Set meta to make this an "Elite" achievement (colocación should be 150%+ of meta)
-    const meta = Math.floor(estimatedColocacion / 1.6); // Will give ~160% achievement
-    const roundedMeta = Math.ceil(meta / 10000) * 10000;
-
-    // Calculate actual bonus
+    // Calculate actual bonus using the user's real meta
     const calculation = calculateFinalBonus(
       estimatedColocacion,
-      roundedMeta,
+      userMeta,
       category,
       quality,
       growth
     );
 
-    const achievementPercentage = (estimatedColocacion / roundedMeta) * 100;
+    const achievementPercentage = (estimatedColocacion / userMeta) * 100;
     const level = GOAL_ACHIEVEMENT_LEVELS.find(l => {
       if (l.maxPercentage === null) {
         return achievementPercentage >= l.minPercentage;
@@ -150,7 +180,7 @@ export default function ProyeccionesPage() {
 
     return {
       colocacion: estimatedColocacion,
-      meta: roundedMeta,
+      meta: userMeta,
       category,
       qualityMultiplier: quality,
       growthMultiplier: growth,
@@ -158,6 +188,17 @@ export default function ProyeccionesPage() {
       achievementLevel: level?.label || 'N/A',
     };
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Cargando tus metas...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -177,55 +218,90 @@ export default function ProyeccionesPage() {
 
       <div className="flex-1 overflow-auto p-4 md:p-6 pb-24 md:pb-6">
         <div className="mx-auto max-w-6xl space-y-6">
-          {/* Target Input Card */}
-          <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-primary" />
-                Define tu Meta de Ingresos
-              </CardTitle>
-              <CardDescription>
-                Ingresa el bono mensual que deseas alcanzar y te mostraremos 3 escenarios diferentes para lograrlo
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex flex-col md:flex-row gap-4 items-end">
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="target">Bono Mensual Deseado</Label>
-                  <Input
-                    id="target"
-                    type="number"
-                    value={targetBonus}
-                    onChange={e => setTargetBonus(Number(e.target.value))}
-                    step={5000}
-                    className="text-lg font-semibold"
-                    placeholder="Ej: 50000"
-                  />
-                  <p className="text-sm text-muted-foreground">
-                    Bono objetivo: <span className="font-bold text-primary">{formatCurrency(targetBonus)}</span>
-                  </p>
-                </div>
-                <Button
-                  onClick={generateScenarios}
-                  size="lg"
-                  className="gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Generar Escenarios
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Info Alert */}
-          {scenarios.length === 0 && (
-            <Alert>
-              <Sparkles className="h-4 w-4" />
+          {/* No Goal Warning */}
+          {!userGoal ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                <strong>¿Cómo funciona?</strong> Ingresa el bono que deseas ganar y te mostraremos 3 caminos diferentes para alcanzarlo.
-                Cada escenario tiene diferentes combinaciones de colocación, calidad y crecimiento.
+                <strong>No tienes una meta asignada</strong> para el mes actual.
+                Por favor contacta a tu administrador para que te asigne una meta mensual y puedas usar las proyecciones.
               </AlertDescription>
             </Alert>
+          ) : (
+            <>
+              {/* User Goal Info */}
+              <Card className="border-2 border-secondary/20 bg-gradient-to-br from-secondary/10 to-primary/10">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Tu Meta Mensual</p>
+                      <p className="text-2xl font-bold text-primary">{formatCurrency(userGoal.monthlyGoal)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Categoría</p>
+                      <Badge variant="secondary" className="text-lg px-3 py-1">{userGoal.category}</Badge>
+                    </div>
+                    {userGoal.product && (
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Producto</p>
+                        <Badge variant="outline" className="text-sm">{userGoal.product}</Badge>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Target Input Card */}
+              <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="h-5 w-5 text-primary" />
+                    Define tu Meta de Ingresos
+                  </CardTitle>
+                  <CardDescription>
+                    Ingresa el bono mensual que deseas alcanzar y te mostraremos 3 escenarios diferentes para lograrlo basados en tu meta real de {formatCurrency(userGoal.monthlyGoal)}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-col md:flex-row gap-4 items-end">
+                    <div className="flex-1 space-y-2">
+                      <Label htmlFor="target">Bono Mensual Deseado</Label>
+                      <Input
+                        id="target"
+                        type="number"
+                        value={targetBonus}
+                        onChange={e => setTargetBonus(Number(e.target.value))}
+                        step={5000}
+                        className="text-lg font-semibold"
+                        placeholder="Ej: 50000"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Bono objetivo: <span className="font-bold text-primary">{formatCurrency(targetBonus)}</span>
+                      </p>
+                    </div>
+                    <Button
+                      onClick={generateScenarios}
+                      size="lg"
+                      className="gap-2 bg-gradient-to-r from-primary to-secondary hover:opacity-90"
+                    >
+                      <Sparkles className="h-4 w-4" />
+                      Generar Escenarios
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Info Alert */}
+              {scenarios.length === 0 && (
+                <Alert>
+                  <Sparkles className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>¿Cómo funciona?</strong> Ingresa el bono que deseas ganar y te mostraremos 3 caminos diferentes para alcanzarlo.
+                    Cada escenario está basado en tu meta mensual real de {formatCurrency(userGoal.monthlyGoal)}.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </>
           )}
 
           {/* Scenarios Grid */}
