@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getUserGoals } from '@/lib/firestore-service';
 import {
   Card,
   CardContent,
@@ -44,6 +46,9 @@ const formatPercentage = (value: number) => {
 };
 
 export default function OriginadoresPage() {
+  const { userProfile } = useAuth();
+  const [loadingUserGoal, setLoadingUserGoal] = useState(true);
+
   const [colocacion, setColocacion] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('calculadora-colocacion');
@@ -83,6 +88,39 @@ export default function OriginadoresPage() {
     }
     return 'A';
   });
+
+  // Cargar la meta del usuario desde Firestore al iniciar
+  useEffect(() => {
+    async function loadUserGoal() {
+      if (!userProfile?.uid) {
+        setLoadingUserGoal(false);
+        return;
+      }
+
+      try {
+        const currentPeriod = new Date().toISOString().slice(0, 7);
+        const userGoals = await getUserGoals(userProfile.uid);
+        const currentGoal = userGoals.find(g => g.period === currentPeriod);
+
+        if (currentGoal) {
+          // Si hay una meta en Firestore, usarla
+          setMeta(currentGoal.monthlyGoal);
+          if (currentGoal.category) {
+            setCategory(currentGoal.category);
+          }
+        } else if (userProfile.category) {
+          // Si no hay meta pero el usuario tiene categoría, usarla
+          setCategory(userProfile.category as UserCategory);
+        }
+      } catch (error) {
+        console.error('Error cargando meta del usuario:', error);
+      } finally {
+        setLoadingUserGoal(false);
+      }
+    }
+
+    loadUserGoal();
+  }, [userProfile]);
 
   // Guardar en localStorage cuando cambien los valores
   useEffect(() => {
@@ -200,14 +238,35 @@ export default function OriginadoresPage() {
                         {formatCurrency(colocacion)}
                       </span>
                     </div>
-                    <Input
-                      id="colocacion"
-                      type="number"
-                      value={colocacion}
-                      onChange={e => setColocacion(Number(e.target.value))}
-                      className="text-lg"
-                      step={10000}
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="colocacion"
+                        type="number"
+                        value={colocacion}
+                        onChange={e => setColocacion(Number(e.target.value) || 0)}
+                        className="text-lg flex-1"
+                        step={10000}
+                        placeholder="Ingresa el monto"
+                      />
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setColocacion(Math.max(0, colocacion - 50000))}
+                          className="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-md transition-colors"
+                          title="Restar 50k"
+                        >
+                          -50k
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setColocacion(colocacion + 50000)}
+                          className="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-md transition-colors"
+                          title="Sumar 50k"
+                        >
+                          +50k
+                        </button>
+                      </div>
+                    </div>
                     <Slider
                       value={[colocacion]}
                       onValueChange={v => setColocacion(v[0])}
@@ -227,14 +286,35 @@ export default function OriginadoresPage() {
                         {formatCurrency(meta)}
                       </span>
                     </div>
-                    <Input
-                      id="meta"
-                      type="number"
-                      value={meta}
-                      onChange={e => setMeta(Number(e.target.value))}
-                      className="text-lg"
-                      step={10000}
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="meta"
+                        type="number"
+                        value={meta}
+                        onChange={e => setMeta(Number(e.target.value) || 0)}
+                        className="text-lg flex-1"
+                        step={10000}
+                        placeholder="Ingresa tu meta"
+                      />
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setMeta(Math.max(0, meta - 50000))}
+                          className="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-md transition-colors"
+                          title="Restar 50k"
+                        >
+                          -50k
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setMeta(meta + 50000)}
+                          className="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-md transition-colors"
+                          title="Sumar 50k"
+                        >
+                          +50k
+                        </button>
+                      </div>
+                    </div>
                     <Slider
                       value={[meta]}
                       onValueChange={v => setMeta(v[0])}
