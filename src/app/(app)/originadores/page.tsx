@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -44,11 +44,76 @@ const formatPercentage = (value: number) => {
 };
 
 export default function OriginadoresPage() {
-  const [colocacion, setColocacion] = useState(300000);
-  const [meta, setMeta] = useState(300000);
-  const [category, setCategory] = useState<UserCategory>('G4');
-  const [qualityMultiplier, setQualityMultiplier] = useState<QualityMultiplier>('A');
-  const [growthMultiplier, setGrowthMultiplier] = useState<GrowthMultiplier>('A');
+  const [colocacion, setColocacion] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('calculadora-colocacion');
+      return saved ? Number(saved) : 300000;
+    }
+    return 300000;
+  });
+
+  const [meta, setMeta] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('calculadora-meta');
+      return saved ? Number(saved) : 300000;
+    }
+    return 300000;
+  });
+
+  const [category, setCategory] = useState<UserCategory>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('calculadora-category');
+      return (saved as UserCategory) || 'G4';
+    }
+    return 'G4';
+  });
+
+  const [qualityMultiplier, setQualityMultiplier] = useState<QualityMultiplier>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('calculadora-quality');
+      return (saved as QualityMultiplier) || 'A';
+    }
+    return 'A';
+  });
+
+  const [growthMultiplier, setGrowthMultiplier] = useState<GrowthMultiplier>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('calculadora-growth');
+      return (saved as GrowthMultiplier) || 'A';
+    }
+    return 'A';
+  });
+
+  // Guardar en localStorage cuando cambien los valores
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('calculadora-colocacion', String(colocacion));
+    }
+  }, [colocacion]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('calculadora-meta', String(meta));
+    }
+  }, [meta]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('calculadora-category', category);
+    }
+  }, [category]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('calculadora-quality', qualityMultiplier);
+    }
+  }, [qualityMultiplier]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('calculadora-growth', growthMultiplier);
+    }
+  }, [growthMultiplier]);
 
   const calculation = useMemo(() => {
     return calculateFinalBonus(colocacion, meta, category, qualityMultiplier, growthMultiplier);
