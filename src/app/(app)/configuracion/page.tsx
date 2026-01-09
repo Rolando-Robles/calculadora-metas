@@ -185,6 +185,7 @@ export default function ConfiguracionPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
+                          <SelectItem value="G0">G0</SelectItem>
                           <SelectItem value="G1">G1</SelectItem>
                           <SelectItem value="G2">G2</SelectItem>
                           <SelectItem value="G3">G3</SelectItem>
@@ -372,6 +373,7 @@ export default function ConfiguracionPage() {
                         <TableRow>
                           <TableHead>Cumplimiento Meta</TableHead>
                           <TableHead>Nivel</TableHead>
+                          <TableHead className="text-center">G0</TableHead>
                           <TableHead className="text-center">G1</TableHead>
                           <TableHead className="text-center">G2</TableHead>
                           <TableHead className="text-center">G3</TableHead>
@@ -388,6 +390,9 @@ export default function ConfiguracionPage() {
                             </TableCell>
                             <TableCell>
                               <Badge variant="outline">{level.label}</Badge>
+                            </TableCell>
+                            <TableCell className="text-center font-semibold">
+                              {level.bonusPercentages.G0}%
                             </TableCell>
                             <TableCell className="text-center font-semibold">
                               {level.bonusPercentages.G1}%

@@ -102,7 +102,7 @@ export default function OriginadoresPage() {
         const userGoals = await getUserGoals(userProfile.uid);
         const currentGoal = userGoals.find(g => g.period === currentPeriod);
 
-        if (currentGoal) {
+        if (currentGoal && currentGoal.monthlyGoal) {
           // Si hay una meta en Firestore, usarla
           setMeta(currentGoal.monthlyGoal);
           if (currentGoal.category) {
@@ -332,6 +332,7 @@ export default function OriginadoresPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="G0">G0</SelectItem>
                         <SelectItem value="G1">G1</SelectItem>
                         <SelectItem value="G2">G2</SelectItem>
                         <SelectItem value="G3">G3</SelectItem>
@@ -493,6 +494,7 @@ export default function OriginadoresPage() {
                         <tr className="border-b bg-muted/50">
                           <th className="p-2 text-left font-medium">Cumplimiento Meta</th>
                           <th className="p-2 text-left font-medium">Nivel</th>
+                          <th className="p-2 text-center font-medium">G0</th>
                           <th className="p-2 text-center font-medium">G1</th>
                           <th className="p-2 text-center font-medium">G2</th>
                           <th className="p-2 text-center font-medium">G3</th>
@@ -518,6 +520,7 @@ export default function OriginadoresPage() {
                                 {level.label}
                               </Badge>
                             </td>
+                            <td className="p-2 text-center">{level.bonusPercentages.G0}%</td>
                             <td className="p-2 text-center">{level.bonusPercentages.G1}%</td>
                             <td className="p-2 text-center">{level.bonusPercentages.G2}%</td>
                             <td className="p-2 text-center">{level.bonusPercentages.G3}%</td>
