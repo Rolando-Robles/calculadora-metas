@@ -92,7 +92,7 @@ export default function LoginPage() {
 
           <div className="mt-6 p-4 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-lg border border-primary/20">
             <p className="text-sm text-muted-foreground text-center">
-              <strong className="text-primary">Primera vez aquí?</strong>
+              <strong className="text-primary">¿Primera vez aquí?</strong>
               <br />
               Inicia sesión con tu cuenta de Google.
               <br />
@@ -104,7 +104,7 @@ export default function LoginPage() {
             <p className="text-xs text-muted-foreground text-center">
               <strong>Para acceso de administrador:</strong>
               <br />
-              Contacta al equipo de TI para obtener permisos de admin.
+              Contacta al equipo de Sales Ops para obtener permisos de admin.
             </p>
           </div>
         </CardContent>
