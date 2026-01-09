@@ -19,6 +19,7 @@ export const GOAL_ACHIEVEMENT_LEVELS: GoalAchievementConfig[] = [
     maxPercentage: 80,
     label: 'Fuera de juego',
     bonusPercentages: {
+      G0: 0,
       G1: 0,
       G2: 0,
       G3: 0,
@@ -31,6 +32,7 @@ export const GOAL_ACHIEVEMENT_LEVELS: GoalAchievementConfig[] = [
     maxPercentage: 90,
     label: 'En Juego',
     bonusPercentages: {
+      G0: 0,
       G1: 1.2,
       G2: 1.6,
       G3: 2.0,
@@ -43,6 +45,7 @@ export const GOAL_ACHIEVEMENT_LEVELS: GoalAchievementConfig[] = [
     maxPercentage: 109,
     label: 'Cumplido',
     bonusPercentages: {
+      G0: 0,
       G1: 1.8,
       G2: 2.3,
       G3: 2.8,
@@ -55,6 +58,7 @@ export const GOAL_ACHIEVEMENT_LEVELS: GoalAchievementConfig[] = [
     maxPercentage: 119,
     label: 'Dominado',
     bonusPercentages: {
+      G0: 0,
       G1: 2.6,
       G2: 3.2,
       G3: 3.8,
@@ -67,6 +71,7 @@ export const GOAL_ACHIEVEMENT_LEVELS: GoalAchievementConfig[] = [
     maxPercentage: 160,
     label: 'Sobresaliente',
     bonusPercentages: {
+      G0: 0,
       G1: 3.8,
       G2: 4.6,
       G3: 5.4,
@@ -79,6 +84,7 @@ export const GOAL_ACHIEVEMENT_LEVELS: GoalAchievementConfig[] = [
     maxPercentage: null,
     label: 'Elite',
     bonusPercentages: {
+      G0: 0,
       G1: 5.0,
       G2: 5.8,
       G3: 6.4,

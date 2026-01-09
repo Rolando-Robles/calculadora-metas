@@ -47,7 +47,7 @@ export interface MonthlyCommission {
 
 export type GoalAchievementLevel = 'fuera_de_juego' | 'en_juego' | 'cumplido' | 'dominado' | 'sobresaliente' | 'elite';
 
-export type UserCategory = 'G1' | 'G2' | 'G3' | 'G4';
+export type UserCategory = 'G0' | 'G1' | 'G2' | 'G3' | 'G4';
 
 export type ProductType = 'aviva_contigo' | 'aviva_tu_negocio' | 'aviva_tu_compra' | 'casa_marchand' | 'construrama';
 
@@ -69,6 +69,7 @@ export interface GoalAchievementConfig {
   maxPercentage: number | null;
   label: string;
   bonusPercentages: {
+    G0: number;
     G1: number;
     G2: number;
     G3: number;

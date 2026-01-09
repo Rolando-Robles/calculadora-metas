@@ -55,6 +55,19 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+// Helper para formatear número a moneda con comas
+const formatCurrencyInput = (value: string | number): string => {
+  if (!value) return '';
+  const numValue = typeof value === 'string' ? value.replace(/[^0-9]/g, '') : String(value);
+  if (!numValue) return '';
+  return Number(numValue).toLocaleString('es-MX');
+};
+
+// Helper para obtener el número limpio desde input formateado
+const parseFormattedCurrency = (value: string): string => {
+  return value.replace(/[^0-9]/g, '');
+};
+
 function AdminContent() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -395,6 +408,7 @@ function AdminContent() {
                                       <SelectValue placeholder="Seleccionar" />
                                     </SelectTrigger>
                                     <SelectContent>
+                                      <SelectItem value="G0">G0</SelectItem>
                                       <SelectItem value="G1">G1</SelectItem>
                                       <SelectItem value="G2">G2</SelectItem>
                                       <SelectItem value="G3">G3</SelectItem>
@@ -433,17 +447,24 @@ function AdminContent() {
                                   </Select>
                                 </TableCell>
                                 <TableCell className="text-right">
-                                  <Input
-                                    type="number"
-                                    className="w-32 text-right"
-                                    placeholder="$300,000"
-                                    value={tempData.goal}
-                                    onChange={(e) => setTempGoals(prev => ({
-                                      ...prev,
-                                      [user.id]: { ...tempData, goal: e.target.value }
-                                    }))}
-                                    step={10000}
-                                  />
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                                      $
+                                    </span>
+                                    <Input
+                                      type="text"
+                                      className="w-40 text-right pl-8"
+                                      placeholder="300,000"
+                                      value={formatCurrencyInput(tempData.goal)}
+                                      onChange={(e) => {
+                                        const cleanValue = parseFormattedCurrency(e.target.value);
+                                        setTempGoals(prev => ({
+                                          ...prev,
+                                          [user.id]: { ...tempData, goal: cleanValue }
+                                        }));
+                                      }}
+                                    />
+                                  </div>
                                 </TableCell>
                                 <TableCell>
                                   <Input
@@ -556,6 +577,7 @@ function AdminContent() {
                           <TableHead>Nivel</TableHead>
                           <TableHead>Min %</TableHead>
                           <TableHead>Max %</TableHead>
+                          <TableHead>G0 (%)</TableHead>
                           <TableHead>G1 (%)</TableHead>
                           <TableHead>G2 (%)</TableHead>
                           <TableHead>G3 (%)</TableHead>
@@ -591,6 +613,17 @@ function AdminContent() {
                                 }
                                 className="w-20"
                                 placeholder="∞"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                value={level.bonusPercentages.G0}
+                                onChange={e =>
+                                  updateGoalLevel(index, 'bonusPercentages.G0', e.target.value)
+                                }
+                                className="w-20"
                               />
                             </TableCell>
                             <TableCell>
