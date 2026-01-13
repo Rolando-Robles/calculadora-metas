@@ -31,7 +31,8 @@ export default function LoginPage() {
       router.push('/');
     } catch (err: any) {
       console.error('Login error:', err);
-      setError('No se pudo iniciar sesión. Por favor, intenta de nuevo.');
+      // Show specific error message if available, otherwise generic message
+      setError(err.message || 'No se pudo iniciar sesión. Por favor, intenta de nuevo.');
     } finally {
       setLoading(false);
     }
@@ -94,13 +95,23 @@ export default function LoginPage() {
             <p className="text-sm text-muted-foreground text-center">
               <strong className="text-primary">¿Primera vez aquí?</strong>
               <br />
-              Inicia sesión con tu cuenta de Google.
+              Inicia sesión con tu cuenta de Google corporativa.
               <br />
               Se creará automáticamente tu perfil de vendedor.
             </p>
           </div>
 
-          <div className="mt-4 p-3 bg-muted/50 rounded-lg border">
+          <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950/30 rounded-lg border border-amber-200 dark:border-amber-800">
+            <p className="text-xs text-amber-900 dark:text-amber-100 text-center">
+              <strong>⚠️ Acceso Restringido</strong>
+              <br />
+              Solo se permite el acceso a usuarios con correo <strong>@avivacredito.com</strong>
+              <br />
+              Los administradores pueden usar cualquier correo.
+            </p>
+          </div>
+
+          <div className="mt-3 p-3 bg-muted/50 rounded-lg border">
             <p className="text-xs text-muted-foreground text-center">
               <strong>Para acceso de administrador:</strong>
               <br />
