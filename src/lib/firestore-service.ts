@@ -102,6 +102,22 @@ export async function updateUserProfile(userId: string, data: any) {
   });
 }
 
+// Create or update user profile (for CSV import and new users)
+export async function createOrUpdateUserProfile(userId: string, data: any) {
+  const userDoc = await getDoc(doc(db, 'users', userId));
+  const isNewUser = !userDoc.exists();
+
+  await setDoc(
+    doc(db, 'users', userId),
+    {
+      ...data,
+      updatedAt: new Date().toISOString(),
+      ...(isNewUser ? { createdAt: new Date().toISOString() } : {}),
+    },
+    { merge: true }
+  );
+}
+
 export async function getAllUsers() {
   const snapshot = await getDocs(collection(db, 'users'));
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
