@@ -57,13 +57,8 @@ export default function OriginadoresPage() {
     return 300000;
   });
 
-  const [meta, setMeta] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('calculadora-meta');
-      return saved ? Number(saved) : 300000;
-    }
-    return 300000;
-  });
+  // META viene de Firestore, no de localStorage
+  const [meta, setMeta] = useState(300000);
 
   const [category, setCategory] = useState<UserCategory>(() => {
     if (typeof window !== 'undefined') {
@@ -129,11 +124,7 @@ export default function OriginadoresPage() {
     }
   }, [colocacion]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('calculadora-meta', String(meta));
-    }
-  }, [meta]);
+  // META ya no se guarda en localStorage - viene de Firestore
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -286,42 +277,17 @@ export default function OriginadoresPage() {
                         {formatCurrency(meta)}
                       </span>
                     </div>
-                    <div className="flex gap-2">
-                      <Input
-                        id="meta"
-                        type="number"
-                        value={meta}
-                        onChange={e => setMeta(Number(e.target.value) || 0)}
-                        className="text-lg flex-1"
-                        step={10000}
-                        placeholder="Ingresa tu meta"
-                      />
-                      <div className="flex gap-1">
-                        <button
-                          type="button"
-                          onClick={() => setMeta(Math.max(0, meta - 50000))}
-                          className="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-md transition-colors"
-                          title="Restar 50k"
-                        >
-                          -50k
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setMeta(meta + 50000)}
-                          className="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-md transition-colors"
-                          title="Sumar 50k"
-                        >
-                          +50k
-                        </button>
-                      </div>
-                    </div>
-                    <Slider
-                      value={[meta]}
-                      onValueChange={v => setMeta(v[0])}
-                      max={1000000}
-                      step={10000}
-                      className="h-6"
+                    <Input
+                      id="meta"
+                      type="text"
+                      value={formatCurrency(meta)}
+                      readOnly
+                      disabled
+                      className="text-lg bg-muted cursor-not-allowed"
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Meta configurada por el administrador
+                    </p>
                   </div>
 
                   {/* Category */}
