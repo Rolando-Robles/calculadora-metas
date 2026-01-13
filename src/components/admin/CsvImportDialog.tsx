@@ -13,8 +13,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { createOrUpdateUserProfile, saveUserGoal } from '@/lib/firestore-service';
 import type { UserCategory, ProductType } from '@/lib/types';
 import { PRODUCTS } from '@/lib/types';
 
@@ -147,49 +146,25 @@ export function CsvImportDialog({ onImportComplete }: CsvImportDialogProps) {
         try {
           const uid = email.replace('@avivacredito.com', '').replace(/[^a-zA-Z0-9]/g, '_');
 
-          // Check if user exists
-          const userDoc = await getDoc(doc(db, 'users', uid));
-          const userExists = userDoc.exists();
+          // Create/Update user profile using firestore-service
+          await createOrUpdateUserProfile(uid, {
+            email,
+            role: 'vendedor',
+            category,
+            product,
+            name: email.split('@')[0],
+          });
 
-          // Create/Update user profile
-          await setDoc(
-            doc(db, 'users', uid),
-            {
-              email,
-              role: 'vendedor',
-              category,
-              product,
-              name: email.split('@')[0],
-              updatedAt: new Date().toISOString(),
-              ...(userExists ? {} : { createdAt: new Date().toISOString() }),
-            },
-            { merge: true }
-          );
-
-          // Create/Update goal for current period
-          const goalId = `${uid}-${currentPeriod}`;
-          await setDoc(
-            doc(db, 'userGoals', goalId),
-            {
-              userId: uid,
-              monthlyGoal: Number(goalStr),
-              category: category as UserCategory,
-              product: product as ProductType,
-              period: currentPeriod,
-              updatedAt: new Date().toISOString(),
-            },
-            { merge: true }
-          );
+          // Create/Update goal for current period using firestore-service
+          await saveUserGoal({
+            userId: uid,
+            monthlyGoal: Number(goalStr),
+            category: category as UserCategory,
+            product: product as ProductType,
+            period: currentPeriod,
+          });
 
           importResult.success++;
-
-          if (userExists) {
-            importResult.warnings.push({
-              row,
-              email,
-              warning: 'Usuario actualizado',
-            });
-          }
         } catch (error) {
           console.error(`Error processing row ${row}:`, error);
           importResult.errors.push({
