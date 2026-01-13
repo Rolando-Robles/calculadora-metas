@@ -54,6 +54,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { CsvImportDialog } from '@/components/admin/CsvImportDialog';
 
 // Helper para formatear número a moneda con comas
 const formatCurrencyInput = (value: string | number): string => {
@@ -318,13 +319,18 @@ function AdminContent() {
             <TabsContent value="users" className="mt-6">
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Gestión de Usuarios y Metas
-                  </CardTitle>
-                  <CardDescription>
-                    Administra usuarios, categorías, productos y metas mensuales en un solo lugar
-                  </CardDescription>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Gestión de Usuarios y Metas
+                      </CardTitle>
+                      <CardDescription>
+                        Administra usuarios, categorías, productos y metas mensuales en un solo lugar
+                      </CardDescription>
+                    </div>
+                    <CsvImportDialog onImportComplete={loadConfigurations} />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {/* Product Filter */}
