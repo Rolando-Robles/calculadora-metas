@@ -33,6 +33,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Helper function to validate email domain
+const isValidEmailDomain = (email: string | null, role: UserRole): boolean => {
+  if (!email) return false;
+
+  // Admins can use any email
+  if (role === 'admin') return true;
+
+  // Other users must use @avivacredito.com
+  return email.endsWith('@avivacredito.com');
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
@@ -45,12 +56,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Fetch user profile from Firestore
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         if (userDoc.exists()) {
-          setUserProfile({
+          const profile = {
             uid: user.uid,
             email: user.email || '',
             ...userDoc.data(),
-          } as UserProfile);
+          } as UserProfile;
+
+          // Verify email domain
+          if (!isValidEmailDomain(user.email, profile.role)) {
+            console.error('Acceso denegado: dominio de email no autorizado');
+            await firebaseSignOut(auth);
+            setUser(null);
+            setUserProfile(null);
+            setLoading(false);
+            return;
+          }
+
+          setUserProfile(profile);
         } else {
+          // Verify email domain for new users
+          if (!isValidEmailDomain(user.email, 'vendedor')) {
+            console.error('Acceso denegado: dominio de email no autorizado');
+            await firebaseSignOut(auth);
+            setUser(null);
+            setUserProfile(null);
+            setLoading(false);
+            return;
+          }
+
           // Create default profile for new Google users
           const defaultProfile = {
             uid: user.uid,
@@ -77,7 +110,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signInWithGoogle = async () => {
     if (!auth) throw new Error('Firebase Auth not initialized');
     const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
+
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const email = result.user.email;
+
+      // Check if email is from allowed domain
+      if (!email?.endsWith('@avivacredito.com')) {
+        // Check if user is admin
+        const userDoc = await getDoc(doc(db, 'users', result.user.uid));
+        const isAdmin = userDoc.exists() && userDoc.data()?.role === 'admin';
+
+        if (!isAdmin) {
+          await firebaseSignOut(auth);
+          throw new Error('Acceso denegado. Solo se permite el acceso a usuarios con correo @avivacredito.com');
+        }
+      }
+    } catch (error: any) {
+      // Re-throw the error so it can be caught by the login page
+      throw error;
+    }
   };
 
   const signOut = async () => {
