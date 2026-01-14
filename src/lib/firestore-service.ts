@@ -122,3 +122,43 @@ export async function getAllUsers() {
   const snapshot = await getDocs(collection(db, 'users'));
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
+
+// Find user by email (for CSV import migration)
+export async function getUserByEmail(email: string) {
+  const usersQuery = query(
+    collection(db, 'users'),
+    where('email', '==', email)
+  );
+  const snapshot = await getDocs(usersQuery);
+  if (!snapshot.empty) {
+    const docSnapshot = snapshot.docs[0];
+    return { id: docSnapshot.id, ...docSnapshot.data() };
+  }
+  return null;
+}
+
+// Migrate user goals from old UID to new UID
+export async function migrateUserGoals(oldUserId: string, newUserId: string) {
+  const goalsQuery = query(
+    collection(db, 'userGoals'),
+    where('userId', '==', oldUserId)
+  );
+  const snapshot = await getDocs(goalsQuery);
+
+  const migrationPromises = snapshot.docs.map(async (goalDoc) => {
+    const goalData = goalDoc.data();
+    const newGoalId = `${newUserId}-${goalData.period}`;
+
+    // Create new goal with correct userId
+    await setDoc(doc(db, 'userGoals', newGoalId), {
+      ...goalData,
+      userId: newUserId,
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Delete old goal (optional, comment out if you want to keep history)
+    // await deleteDoc(doc(db, 'userGoals', goalDoc.id));
+  });
+
+  await Promise.all(migrationPromises);
+}

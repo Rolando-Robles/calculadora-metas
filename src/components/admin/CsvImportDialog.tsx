@@ -255,6 +255,17 @@ carlos.garcia@avivacredito.com,G1,aviva_tu_compra,150000`;
             </ul>
           </div>
 
+          {/* Important Notice */}
+          <div className="bg-amber-50 dark:bg-amber-950/30 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
+            <h4 className="font-medium text-amber-900 dark:text-amber-100 mb-2">
+              ⚠️ Importante
+            </h4>
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              Los usuarios importados deben <strong>iniciar sesión con Google</strong> usando su correo @avivacredito.com
+              la primera vez para activar su cuenta. Sus metas y configuración se migrarán automáticamente.
+            </p>
+          </div>
+
           {/* Download Template */}
           <Button onClick={downloadTemplate} variant="outline" className="w-full gap-2">
             <FileDown className="h-4 w-4" />
