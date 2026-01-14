@@ -60,12 +60,27 @@ export async function initializeDefaultConfig() {
 // ===== USER GOALS =====
 
 export async function getUserGoals(userEmail: string) {
-  const goalsQuery = query(
+  // Buscar primero por userEmail (nuevo formato)
+  const emailQuery = query(
     collection(db, 'userGoals'),
     where('userEmail', '==', userEmail)
   );
-  const snapshot = await getDocs(goalsQuery);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserGoalConfig & { id: string }));
+  const emailSnapshot = await getDocs(emailQuery);
+
+  if (!emailSnapshot.empty) {
+    return emailSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserGoalConfig & { id: string }));
+  }
+
+  // Si no se encuentra, buscar por userId (formato antiguo para compatibilidad)
+  // Extraer el UID del email para buscar metas antiguas
+  const userId = userEmail.replace('@avivacredito.com', '').replace(/[^a-zA-Z0-9]/g, '_');
+  const uidQuery = query(
+    collection(db, 'userGoals'),
+    where('userId', '==', userId)
+  );
+  const uidSnapshot = await getDocs(uidQuery);
+
+  return uidSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as UserGoalConfig & { id: string }));
 }
 
 export async function getAllUserGoals() {
@@ -121,4 +136,34 @@ export async function createOrUpdateUserProfile(userId: string, data: any) {
 export async function getAllUsers() {
   const snapshot = await getDocs(collection(db, 'users'));
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+// Migrar metas antiguas con userId a userEmail
+export async function migrateUserGoalsToEmail(userId: string, userEmail: string) {
+  try {
+    const goalsQuery = query(
+      collection(db, 'userGoals'),
+      where('userId', '==', userId)
+    );
+    const snapshot = await getDocs(goalsQuery);
+
+    const migrationPromises = snapshot.docs.map(async (goalDoc) => {
+      const goalData = goalDoc.data();
+
+      // Solo migrar si no tiene userEmail
+      if (!goalData.userEmail) {
+        await updateDoc(doc(db, 'userGoals', goalDoc.id), {
+          userEmail: userEmail,
+          migratedAt: new Date().toISOString(),
+        });
+        console.log(`✅ Migrated goal ${goalDoc.id} to email: ${userEmail}`);
+      }
+    });
+
+    await Promise.all(migrationPromises);
+    return true;
+  } catch (error) {
+    console.error('Error migrating user goals:', error);
+    return false;
+  }
 }

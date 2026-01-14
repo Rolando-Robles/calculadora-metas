@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserGoals } from '@/lib/firestore-service';
+import { getUserGoals, migrateUserGoalsToEmail } from '@/lib/firestore-service';
 import {
   Card,
   CardContent,
@@ -93,7 +93,17 @@ export default function OriginadoresPage() {
 
       try {
         const currentPeriod = new Date().toISOString().slice(0, 7);
-        const userGoals = await getUserGoals(userProfile.email);
+        let userGoals = await getUserGoals(userProfile.email);
+
+        // Si encontramos metas y alguna no tiene userEmail, migrar
+        if (userGoals.length > 0 && userGoals.some((g: any) => !g.userEmail)) {
+          console.log('🔄 Migrando metas antiguas a nuevo formato con email...');
+          const userId = userProfile.email.replace('@avivacredito.com', '').replace(/[^a-zA-Z0-9]/g, '_');
+          await migrateUserGoalsToEmail(userId, userProfile.email);
+          // Recargar metas después de migración
+          userGoals = await getUserGoals(userProfile.email);
+        }
+
         const currentGoal = userGoals.find(g => g.period === currentPeriod);
 
         if (currentGoal && currentGoal.monthlyGoal) {
