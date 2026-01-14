@@ -10,7 +10,6 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { getUserByEmail, migrateUserGoals } from '@/lib/firestore-service';
 
 export type UserRole = 'admin' | 'vendedor';
 
@@ -85,47 +84,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
 
-          // Check if user was imported from CSV (has profile with different UID)
-          const existingProfile = await getUserByEmail(user.email || '');
+          // Create default profile for new Google users
+          const defaultProfile = {
+            uid: user.uid,
+            email: user.email || '',
+            role: 'vendedor' as UserRole,
+            name: user.displayName || user.email?.split('@')[0] || 'Usuario',
+            createdAt: new Date().toISOString(),
+          };
 
-          if (existingProfile && existingProfile.id !== user.uid) {
-            console.log('Migrando perfil de CSV import:', existingProfile.id, '→', user.uid);
+          // Save to Firestore
+          await setDoc(doc(db, 'users', user.uid), defaultProfile);
 
-            // Migrate user goals from old UID to new UID
-            await migrateUserGoals(existingProfile.id, user.uid);
-
-            // Create profile with correct UID using existing data
-            const migratedProfile = {
-              uid: user.uid,
-              email: user.email || '',
-              role: (existingProfile.role as UserRole) || 'vendedor',
-              name: existingProfile.name || user.displayName || user.email?.split('@')[0] || 'Usuario',
-              category: existingProfile.category,
-              product: existingProfile.product,
-              createdAt: existingProfile.createdAt || new Date().toISOString(),
-              migratedFrom: existingProfile.id,
-              migratedAt: new Date().toISOString(),
-            };
-
-            // Save migrated profile with correct UID
-            await setDoc(doc(db, 'users', user.uid), migratedProfile);
-
-            setUserProfile(migratedProfile);
-          } else {
-            // Create default profile for new Google users
-            const defaultProfile = {
-              uid: user.uid,
-              email: user.email || '',
-              role: 'vendedor' as UserRole,
-              name: user.displayName || user.email?.split('@')[0] || 'Usuario',
-              createdAt: new Date().toISOString(),
-            };
-
-            // Save to Firestore
-            await setDoc(doc(db, 'users', user.uid), defaultProfile);
-
-            setUserProfile(defaultProfile);
-          }
+          setUserProfile(defaultProfile);
         }
       } else {
         setUserProfile(null);

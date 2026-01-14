@@ -90,7 +90,7 @@ export interface GrowthMultiplierConfig {
 }
 
 export interface UserGoalConfig {
-  userId: string;
+  userEmail: string; // Email del usuario (identificador único)
   monthlyGoal: number; // Meta mensual de colocación
   category: UserCategory;
   product?: ProductType;

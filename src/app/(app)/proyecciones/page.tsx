@@ -69,8 +69,8 @@ export default function ProyeccionesPage() {
 
       try {
         setLoading(true);
-        console.log('🔍 Loading goals for user:', user.uid);
-        const goals = await getUserGoals(user.uid);
+        console.log('🔍 Loading goals for user:', user.email);
+        const goals = await getUserGoals(user.email || '');
         console.log('📋 All goals loaded:', goals);
 
         const currentPeriod = new Date().toISOString().slice(0, 7);

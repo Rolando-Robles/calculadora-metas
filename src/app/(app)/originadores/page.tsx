@@ -93,7 +93,7 @@ export default function OriginadoresPage() {
 
       try {
         const currentPeriod = new Date().toISOString().slice(0, 7);
-        const userGoals = await getUserGoals(userProfile.uid);
+        const userGoals = await getUserGoals(userProfile.email);
         const currentGoal = userGoals.find(g => g.period === currentPeriod);
 
         if (currentGoal && currentGoal.monthlyGoal) {

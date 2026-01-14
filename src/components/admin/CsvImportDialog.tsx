@@ -155,9 +155,9 @@ export function CsvImportDialog({ onImportComplete }: CsvImportDialogProps) {
             name: email.split('@')[0],
           });
 
-          // Create/Update goal for current period using firestore-service
+          // Create/Update goal for current period using userEmail
           await saveUserGoal({
-            userId: uid,
+            userEmail: email,
             monthlyGoal: Number(goalStr),
             category: category as UserCategory,
             product: product as ProductType,
@@ -256,13 +256,13 @@ carlos.garcia@avivacredito.com,G1,aviva_tu_compra,150000`;
           </div>
 
           {/* Important Notice */}
-          <div className="bg-amber-50 dark:bg-amber-950/30 p-4 rounded-lg border border-amber-200 dark:border-amber-800">
-            <h4 className="font-medium text-amber-900 dark:text-amber-100 mb-2">
-              ⚠️ Importante
+          <div className="bg-green-50 dark:bg-green-950/30 p-4 rounded-lg border border-green-200 dark:border-green-800">
+            <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">
+              ✅ Acceso inmediato
             </h4>
-            <p className="text-sm text-amber-800 dark:text-amber-200">
-              Los usuarios importados deben <strong>iniciar sesión con Google</strong> usando su correo @avivacredito.com
-              la primera vez para activar su cuenta. Sus metas y configuración se migrarán automáticamente.
+            <p className="text-sm text-green-800 dark:text-green-200">
+              Los usuarios importados pueden <strong>iniciar sesión con Google</strong> usando su correo @avivacredito.com
+              y acceder inmediatamente a sus metas y configuración.
             </p>
           </div>
 
