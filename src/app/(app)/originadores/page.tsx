@@ -23,12 +23,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import {
-  calculateFinalBonus,
-  GOAL_ACHIEVEMENT_LEVELS,
-  QUALITY_MULTIPLIERS,
-  GROWTH_MULTIPLIERS,
-} from '@/lib/incentives-config';
+import { calculateFinalBonus } from '@/lib/incentives-config';
+import { useIncentiveConfig } from '@/hooks/use-incentive-config';
 import type { UserCategory, QualityMultiplier, GrowthMultiplier } from '@/lib/types';
 import { Sparkles, TrendingUp, Award, Target } from 'lucide-react';
 
@@ -48,6 +44,9 @@ const formatPercentage = (value: number) => {
 export default function OriginadoresPage() {
   const { userProfile } = useAuth();
   const [loadingUserGoal, setLoadingUserGoal] = useState(true);
+
+  // Cargar configuraciones dinámicas desde Firestore
+  const { goalLevels, qualityMults, growthMults, loading: configLoading } = useIncentiveConfig();
 
   const [colocacion, setColocacion] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -145,10 +144,19 @@ export default function OriginadoresPage() {
   }, [growthMultiplier]);
 
   const calculation = useMemo(() => {
-    return calculateFinalBonus(colocacion, meta, category, qualityMultiplier, growthMultiplier);
-  }, [colocacion, meta, category, qualityMultiplier, growthMultiplier]);
+    return calculateFinalBonus(
+      colocacion,
+      meta,
+      category,
+      qualityMultiplier,
+      growthMultiplier,
+      goalLevels,
+      qualityMults,
+      growthMults
+    );
+  }, [colocacion, meta, category, qualityMultiplier, growthMultiplier, goalLevels, qualityMults, growthMults]);
 
-  const achievementLevelConfig = GOAL_ACHIEVEMENT_LEVELS.find(
+  const achievementLevelConfig = goalLevels.find(
     l => l.level === calculation.achievementLevel
   );
 
@@ -318,7 +326,7 @@ export default function OriginadoresPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {QUALITY_MULTIPLIERS.map(q => (
+                        {qualityMults.map(q => (
                           <SelectItem key={q.level} value={q.level}>
                             {q.label} (×{q.value.toFixed(2)})
                           </SelectItem>
@@ -338,7 +346,7 @@ export default function OriginadoresPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {GROWTH_MULTIPLIERS.map(g => (
+                        {growthMults.map(g => (
                           <SelectItem key={g.level} value={g.level}>
                             {g.label} (×{g.value.toFixed(2)})
                           </SelectItem>
@@ -468,7 +476,7 @@ export default function OriginadoresPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {GOAL_ACHIEVEMENT_LEVELS.map(level => (
+                        {goalLevels.map(level => (
                           <tr key={level.level} className="border-b hover:bg-muted/30">
                             <td className="p-2">
                               {level.maxPercentage
@@ -500,7 +508,7 @@ export default function OriginadoresPage() {
 
                 <TabsContent value="quality" className="mt-4">
                   <div className="grid gap-3">
-                    {QUALITY_MULTIPLIERS.map(q => (
+                    {qualityMults.map(q => (
                       <div
                         key={q.level}
                         className={cn(
@@ -530,7 +538,7 @@ export default function OriginadoresPage() {
 
                 <TabsContent value="growth" className="mt-4">
                   <div className="grid gap-3">
-                    {GROWTH_MULTIPLIERS.map(g => (
+                    {growthMults.map(g => (
                       <div
                         key={g.level}
                         className={cn(
