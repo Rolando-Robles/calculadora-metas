@@ -10,6 +10,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { findUserByEmail, migrateUserGoalsToEmail } from '@/lib/firestore-service';
 
 export type UserRole = 'admin' | 'vendedor';
 
@@ -84,19 +85,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
 
-          // Create default profile for new Google users
-          const defaultProfile = {
-            uid: user.uid,
-            email: user.email || '',
-            role: 'vendedor' as UserRole,
-            name: user.displayName || user.email?.split('@')[0] || 'Usuario',
-            createdAt: new Date().toISOString(),
-          };
+          // SOLUCIÓN DEFINITIVA: Buscar perfil temporal creado por CSV import
+          console.log('🔍 Usuario sin perfil, buscando perfil temporal por email:', user.email);
+          const existingProfile = await findUserByEmail(user.email || '');
 
-          // Save to Firestore
-          await setDoc(doc(db, 'users', user.uid), defaultProfile);
+          if (existingProfile && existingProfile.id !== user.uid) {
+            // Encontró un perfil temporal del CSV import
+            console.log('✅ Perfil temporal encontrado:', existingProfile.id);
+            console.log('📦 Copiando datos del perfil temporal al UID correcto...');
 
-          setUserProfile(defaultProfile);
+            // Copiar TODO del perfil temporal al UID correcto
+            const migratedProfile = {
+              uid: user.uid,
+              email: user.email || '',
+              role: (existingProfile.role as UserRole) || 'vendedor',
+              name: existingProfile.name || user.displayName || user.email?.split('@')[0] || 'Usuario',
+              category: existingProfile.category,
+              product: existingProfile.product,
+              createdAt: existingProfile.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              migratedFrom: existingProfile.id,
+            };
+
+            // Guardar perfil migrado con el UID correcto
+            await setDoc(doc(db, 'users', user.uid), migratedProfile);
+            console.log('✅ Perfil migrado correctamente');
+
+            // Migrar metas si tienen formato antiguo
+            const tempUserId = (user.email || '').replace('@avivacredito.com', '').replace(/[^a-zA-Z0-9]/g, '_');
+            await migrateUserGoalsToEmail(tempUserId, user.email || '');
+            console.log('✅ Metas migradas correctamente');
+
+            setUserProfile(migratedProfile);
+          } else {
+            // No hay perfil temporal, crear uno nuevo por defecto
+            console.log('ℹ️ No hay perfil temporal, creando perfil nuevo');
+            const defaultProfile = {
+              uid: user.uid,
+              email: user.email || '',
+              role: 'vendedor' as UserRole,
+              name: user.displayName || user.email?.split('@')[0] || 'Usuario',
+              createdAt: new Date().toISOString(),
+            };
+
+            await setDoc(doc(db, 'users', user.uid), defaultProfile);
+            setUserProfile(defaultProfile);
+          }
         }
       } else {
         setUserProfile(null);
