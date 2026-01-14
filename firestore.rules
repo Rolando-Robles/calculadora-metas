@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Users collection
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // Users can update their own profile (limited fields)
+      allow update: if request.auth != null && request.auth.uid == userId;
+
+      // Admins can read all users
+      allow read: if isAdmin();
+
+      // Admins can create/update any user
+      allow create, update: if isAdmin();
+    }
+
+    // User Goals collection - ACTUALIZADO PARA USAR EMAIL
+    match /userGoals/{goalId} {
+      // Users can read their own goals by email (new format) OR userId (legacy format)
+      allow read: if request.auth != null &&
+                     (resource.data.userEmail == request.auth.token.email ||
+                      resource.data.userId == request.auth.uid);
+
+      // Admins can read/write all goals
+      allow read, write: if isAdmin();
+
+      // Admins can create/update goals
+      allow create, update: if isAdmin();
+    }
+
+    // Config collection (incentives config)
+    match /config/{docId} {
+      // Anyone authenticated can read
+      allow read: if request.auth != null;
+
+      // Only admins can write
+      allow write: if isAdmin();
+    }
+  }
+}
