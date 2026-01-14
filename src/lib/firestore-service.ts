@@ -138,6 +138,22 @@ export async function getAllUsers() {
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
 
+// Buscar usuario por email (para encontrar perfiles temporales de CSV import)
+export async function findUserByEmail(email: string) {
+  const usersQuery = query(
+    collection(db, 'users'),
+    where('email', '==', email)
+  );
+  const snapshot = await getDocs(usersQuery);
+
+  if (!snapshot.empty) {
+    const docSnapshot = snapshot.docs[0];
+    return { id: docSnapshot.id, ...docSnapshot.data() };
+  }
+
+  return null;
+}
+
 // Migrar metas antiguas con userId a userEmail
 export async function migrateUserGoalsToEmail(userId: string, userEmail: string) {
   try {
