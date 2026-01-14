@@ -23,7 +23,7 @@ import type {
 import { Sparkles, Target, TrendingUp, Zap, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserGoals, migrateUserGoalsToEmail } from '@/lib/firestore-service';
+import { getUserGoals } from '@/lib/firestore-service';
 import { useToast } from '@/hooks/use-toast';
 
 const formatCurrency = (value: number) => {
@@ -69,29 +69,26 @@ export default function ProyeccionesPage() {
 
       try {
         setLoading(true);
-        console.log('🔍 Loading goals for user:', user.email);
-        let goals = await getUserGoals(user.email || '');
-        console.log('📋 All goals loaded:', goals);
+        console.log('📧 Buscando metas para:', user.email);
 
-        // Si encontramos metas y alguna no tiene userEmail, migrar
-        if (goals.length > 0 && goals.some((g: any) => !g.userEmail)) {
-          console.log('🔄 Migrando metas antiguas a nuevo formato con email...');
-          const userId = (user.email || '').replace('@avivacredito.com', '').replace(/[^a-zA-Z0-9]/g, '_');
-          await migrateUserGoalsToEmail(userId, user.email || '');
-          // Recargar metas después de migración
-          goals = await getUserGoals(user.email || '');
-          console.log('✅ Metas migradas y recargadas:', goals);
-        }
+        const goals = await getUserGoals(user.email || '');
+        console.log('📋 Metas encontradas:', goals);
 
         const currentPeriod = new Date().toISOString().slice(0, 7);
-        console.log('📅 Current period:', currentPeriod);
+        console.log('📅 Periodo actual:', currentPeriod);
 
         const currentGoal = goals.find(g => g.period === currentPeriod);
-        console.log('🎯 Found goal for current period:', currentGoal);
+        console.log('🎯 Meta actual:', currentGoal);
+
+        if (currentGoal) {
+          console.log('✅ Meta cargada correctamente');
+        } else {
+          console.log('⚠️ No se encontró meta para el periodo actual');
+        }
 
         setUserGoal(currentGoal || null);
       } catch (error) {
-        console.error('❌ Error loading user goal:', error);
+        console.error('❌ Error cargando meta del usuario:', error);
       } finally {
         setLoading(false);
       }

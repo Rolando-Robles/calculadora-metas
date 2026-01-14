@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { getUserGoals, migrateUserGoalsToEmail } from '@/lib/firestore-service';
+import { getUserGoals } from '@/lib/firestore-service';
 import {
   Card,
   CardContent,
@@ -93,18 +93,13 @@ export default function OriginadoresPage() {
 
       try {
         const currentPeriod = new Date().toISOString().slice(0, 7);
-        let userGoals = await getUserGoals(userProfile.email);
+        console.log('📧 Buscando metas para:', userProfile.email);
 
-        // Si encontramos metas y alguna no tiene userEmail, migrar
-        if (userGoals.length > 0 && userGoals.some((g: any) => !g.userEmail)) {
-          console.log('🔄 Migrando metas antiguas a nuevo formato con email...');
-          const userId = userProfile.email.replace('@avivacredito.com', '').replace(/[^a-zA-Z0-9]/g, '_');
-          await migrateUserGoalsToEmail(userId, userProfile.email);
-          // Recargar metas después de migración
-          userGoals = await getUserGoals(userProfile.email);
-        }
+        const userGoals = await getUserGoals(userProfile.email);
+        console.log('📋 Metas encontradas:', userGoals);
 
         const currentGoal = userGoals.find(g => g.period === currentPeriod);
+        console.log('🎯 Meta actual:', currentGoal);
 
         if (currentGoal && currentGoal.monthlyGoal) {
           // Si hay una meta en Firestore, usarla
@@ -112,12 +107,16 @@ export default function OriginadoresPage() {
           if (currentGoal.category) {
             setCategory(currentGoal.category);
           }
+          console.log('✅ Meta cargada:', currentGoal.monthlyGoal);
         } else if (userProfile.category) {
           // Si no hay meta pero el usuario tiene categoría, usarla
           setCategory(userProfile.category as UserCategory);
+          console.log('ℹ️ No hay meta, usando categoría del perfil');
+        } else {
+          console.log('⚠️ No se encontró meta para el usuario');
         }
       } catch (error) {
-        console.error('Error cargando meta del usuario:', error);
+        console.error('❌ Error cargando meta del usuario:', error);
       } finally {
         setLoadingUserGoal(false);
       }
