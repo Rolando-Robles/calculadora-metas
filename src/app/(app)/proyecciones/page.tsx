@@ -13,7 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { calculateFinalBonus, GOAL_ACHIEVEMENT_LEVELS } from '@/lib/incentives-config';
+import { calculateFinalBonus } from '@/lib/incentives-config';
+import { useIncentiveConfig } from '@/hooks/use-incentive-config';
 import type {
   UserCategory,
   QualityMultiplier,
@@ -55,6 +56,9 @@ export default function ProyeccionesPage() {
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [userGoal, setUserGoal] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+
+  // Cargar configuraciones dinámicas desde Firestore
+  const { goalLevels, qualityMults, growthMults, loading: configLoading } = useIncentiveConfig();
 
   useEffect(() => {
     const loadUserGoal = async () => {
@@ -109,7 +113,10 @@ export default function ProyeccionesPage() {
       userCategory as UserCategory,
       'B' as QualityMultiplier,
       'C' as GrowthMultiplier,
-      userGoal.monthlyGoal
+      userGoal.monthlyGoal,
+      goalLevels,
+      qualityMults,
+      growthMults
     );
     newScenarios.push({
       name: 'Escenario Conservador',
@@ -125,7 +132,10 @@ export default function ProyeccionesPage() {
       userCategory as UserCategory,
       'B' as QualityMultiplier,
       'B' as GrowthMultiplier,
-      userGoal.monthlyGoal
+      userGoal.monthlyGoal,
+      goalLevels,
+      qualityMults,
+      growthMults
     );
     newScenarios.push({
       name: 'Escenario Balanceado',
@@ -141,7 +151,10 @@ export default function ProyeccionesPage() {
       userCategory as UserCategory,
       'A' as QualityMultiplier,
       'B' as GrowthMultiplier,
-      userGoal.monthlyGoal
+      userGoal.monthlyGoal,
+      goalLevels,
+      qualityMults,
+      growthMults
     );
     newScenarios.push({
       name: 'Escenario Optimizado',
@@ -159,7 +172,10 @@ export default function ProyeccionesPage() {
     category: UserCategory,
     quality: QualityMultiplier,
     growth: GrowthMultiplier,
-    userMeta: number
+    userMeta: number,
+    goalLevelsParam: typeof goalLevels,
+    qualityMultsParam: typeof qualityMults,
+    growthMultsParam: typeof growthMults
   ) => {
     // Use binary search to find the exact colocación that gives us the target bonus
     let low = target * 0.1; // Lower bound - start conservatively
@@ -173,7 +189,16 @@ export default function ProyeccionesPage() {
     // Binary search for the colocación that produces the exact target bonus
     while (iterations < maxIterations && (high - low) > tolerance) {
       const mid = (low + high) / 2;
-      const testCalculation = calculateFinalBonus(mid, userMeta, category, quality, growth);
+      const testCalculation = calculateFinalBonus(
+        mid,
+        userMeta,
+        category,
+        quality,
+        growth,
+        goalLevelsParam,
+        qualityMultsParam,
+        growthMultsParam
+      );
       const difference = Math.abs(testCalculation.bonusFinal - target);
 
       if (difference < bestDifference) {
@@ -204,11 +229,14 @@ export default function ProyeccionesPage() {
       userMeta,
       category,
       quality,
-      growth
+      growth,
+      goalLevelsParam,
+      qualityMultsParam,
+      growthMultsParam
     );
 
     const achievementPercentage = (bestColocacion / userMeta) * 100;
-    const level = GOAL_ACHIEVEMENT_LEVELS.find(l => {
+    const level = goalLevelsParam.find(l => {
       if (l.maxPercentage === null) {
         return achievementPercentage >= l.minPercentage;
       }

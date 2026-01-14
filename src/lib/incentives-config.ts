@@ -148,8 +148,11 @@ export const GROWTH_MULTIPLIERS: GrowthMultiplierConfig[] = [
 /**
  * Obtiene la configuración de nivel de cumplimiento según el porcentaje
  */
-export function getGoalAchievementLevel(achievementPercentage: number): GoalAchievementConfig {
-  for (const level of GOAL_ACHIEVEMENT_LEVELS) {
+export function getGoalAchievementLevel(
+  achievementPercentage: number,
+  goalLevels: GoalAchievementConfig[] = GOAL_ACHIEVEMENT_LEVELS
+): GoalAchievementConfig {
+  for (const level of goalLevels) {
     if (level.maxPercentage === null) {
       if (achievementPercentage >= level.minPercentage) {
         return level;
@@ -160,22 +163,28 @@ export function getGoalAchievementLevel(achievementPercentage: number): GoalAchi
       }
     }
   }
-  return GOAL_ACHIEVEMENT_LEVELS[0]; // Por defecto: fuera de juego
+  return goalLevels[0]; // Por defecto: fuera de juego
 }
 
 /**
  * Obtiene el valor del multiplicador de calidad
  */
-export function getQualityMultiplierValue(level: QualityMultiplier): number {
-  const config = QUALITY_MULTIPLIERS.find(m => m.level === level);
+export function getQualityMultiplierValue(
+  level: QualityMultiplier,
+  qualityMults: QualityMultiplierConfig[] = QUALITY_MULTIPLIERS
+): number {
+  const config = qualityMults.find(m => m.level === level);
   return config?.value ?? 1.0;
 }
 
 /**
  * Obtiene el valor del multiplicador de crecimiento
  */
-export function getGrowthMultiplierValue(level: GrowthMultiplier): number {
-  const config = GROWTH_MULTIPLIERS.find(m => m.level === level);
+export function getGrowthMultiplierValue(
+  level: GrowthMultiplier,
+  growthMults: GrowthMultiplierConfig[] = GROWTH_MULTIPLIERS
+): number {
+  const config = growthMults.find(m => m.level === level);
   return config?.value ?? 1.0;
 }
 
@@ -185,9 +194,10 @@ export function getGrowthMultiplierValue(level: GrowthMultiplier): number {
 export function calculateBonusBase(
   colocacion: number,
   achievementPercentage: number,
-  category: UserCategory
+  category: UserCategory,
+  goalLevels: GoalAchievementConfig[] = GOAL_ACHIEVEMENT_LEVELS
 ): { bonusBase: number; bonusBasePercentage: number; achievementLevel: GoalAchievementLevel } {
-  const levelConfig = getGoalAchievementLevel(achievementPercentage);
+  const levelConfig = getGoalAchievementLevel(achievementPercentage, goalLevels);
   const bonusBasePercentage = levelConfig.bonusPercentages[category];
   const bonusBase = colocacion * (bonusBasePercentage / 100);
 
@@ -207,7 +217,10 @@ export function calculateFinalBonus(
   meta: number,
   category: UserCategory,
   qualityMultiplier: QualityMultiplier,
-  growthMultiplier: GrowthMultiplier
+  growthMultiplier: GrowthMultiplier,
+  goalLevels: GoalAchievementConfig[] = GOAL_ACHIEVEMENT_LEVELS,
+  qualityMults: QualityMultiplierConfig[] = QUALITY_MULTIPLIERS,
+  growthMults: GrowthMultiplierConfig[] = GROWTH_MULTIPLIERS
 ): {
   bonusFinal: number;
   bonusBase: number;
@@ -221,11 +234,12 @@ export function calculateFinalBonus(
   const { bonusBase, bonusBasePercentage, achievementLevel } = calculateBonusBase(
     colocacion,
     achievementPercentage,
-    category
+    category,
+    goalLevels
   );
 
-  const qualityMultiplierValue = getQualityMultiplierValue(qualityMultiplier);
-  const growthMultiplierValue = getGrowthMultiplierValue(growthMultiplier);
+  const qualityMultiplierValue = getQualityMultiplierValue(qualityMultiplier, qualityMults);
+  const growthMultiplierValue = getGrowthMultiplierValue(growthMultiplier, growthMults);
 
   const bonusFinal = bonusBase * qualityMultiplierValue * growthMultiplierValue;
 
