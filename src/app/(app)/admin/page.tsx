@@ -190,7 +190,9 @@ function AdminContent() {
 
   const getUserGoal = (userId: string) => {
     const currentPeriod = new Date().toISOString().slice(0, 7);
-    return userGoals.find(g => g.userId === userId && g.period === currentPeriod);
+    const user = registeredUsers.find(u => u.id === userId);
+    const userEmail = user?.email;
+    return userGoals.find(g => g.userEmail === userEmail && g.period === currentPeriod);
   };
 
   const handleUpdateUserGoal = async (userId: string, field: string, value: any) => {
@@ -199,12 +201,21 @@ function AdminContent() {
       const existingGoal = getUserGoal(userId);
       const user = registeredUsers.find(u => u.id === userId);
 
-      console.log('📝 Updating goal:', { userId, field, value, existingGoal });
+      if (!user?.email) {
+        toast({
+          title: 'Error',
+          description: 'No se encontró el email del usuario',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      console.log('📝 Updating goal:', { userId, userEmail: user.email, field, value, existingGoal });
 
       if (existingGoal) {
         // Update existing goal
         const updatedGoal: UserGoalConfig = {
-          userId,
+          userEmail: user.email,
           monthlyGoal: field === 'monthlyGoal' ? Number(value) : existingGoal.monthlyGoal,
           category: field === 'category' ? value : (existingGoal.category || user?.category || 'G4'),
           product: field === 'product' ? value : (existingGoal.product || user?.product),
@@ -217,7 +228,7 @@ function AdminContent() {
         // Update local state only
         setUserGoals(prev => {
           const updated = prev.map(g =>
-            g.userId === userId && g.period === existingGoal.period
+            g.userEmail === user.email && g.period === existingGoal.period
               ? { ...g, ...updatedGoal }
               : g
           );
@@ -227,7 +238,7 @@ function AdminContent() {
       } else {
         // Create new goal
         const newGoal: UserGoalConfig = {
-          userId,
+          userEmail: user.email,
           monthlyGoal: field === 'monthlyGoal' ? Number(value) : 300000,
           category: (user?.category as UserCategory) || 'G4',
           product: user?.product,
@@ -238,7 +249,7 @@ function AdminContent() {
         await saveUserGoal(newGoal);
 
         // Add to local state
-        const goalId = `${userId}-${newGoal.period}`;
+        const goalId = `${user.email.replace('@', '_at_').replace(/\./g, '_')}-${newGoal.period}`;
         setUserGoals(prev => {
           const updated = [...prev, { ...newGoal, id: goalId }];
           console.log('✅ Local state with new goal:', updated);
@@ -507,7 +518,7 @@ function AdminContent() {
 
                                       try {
                                         const goalToSave: UserGoalConfig = {
-                                          userId: user.id,
+                                          userEmail: user.email,
                                           monthlyGoal: Number(tempData.goal),
                                           category: user.category as UserCategory,
                                           product: user.product,
@@ -518,12 +529,12 @@ function AdminContent() {
                                         await saveUserGoal(goalToSave);
 
                                         // Update local state
-                                        const goalId = `${user.id}-${tempData.period}`;
+                                        const goalId = `${user.email.replace('@', '_at_').replace(/\./g, '_')}-${tempData.period}`;
                                         setUserGoals(prev => {
-                                          const existing = prev.find(g => g.userId === user.id && g.period === tempData.period);
+                                          const existing = prev.find(g => g.userEmail === user.email && g.period === tempData.period);
                                           if (existing) {
                                             return prev.map(g =>
-                                              g.userId === user.id && g.period === tempData.period
+                                              g.userEmail === user.email && g.period === tempData.period
                                                 ? { ...goalToSave, id: goalId }
                                                 : g
                                             );
