@@ -250,7 +250,7 @@ carlos.garcia@avivacredito.com,G1,aviva_tu_compra,150000`;
               <li>• <strong>Primera fila:</strong> Encabezados (Correo, Categoría, Producto, Meta Mensual)</li>
               <li>• <strong>Correo:</strong> Debe terminar en @avivacredito.com</li>
               <li>• <strong>Categoría:</strong> G1 (Formación), G2 (Territorio), G3 (Consolidado), o G4 (Élite)</li>
-              <li>• <strong>Producto:</strong> aviva_contigo (Nano), aviva_tu_negocio (ATN), aviva_tu_compra (Cashi), casa_marchand, o construrama</li>
+              <li>• <strong>Producto:</strong> aviva_contigo, aviva_tu_negocio, aviva_tu_compra, casa_marchand, o construrama</li>
               <li>• <strong>Meta Mensual:</strong> Número (ejemplo: 200000)</li>
             </ul>
           </div>
