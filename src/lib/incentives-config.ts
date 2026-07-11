@@ -6,7 +6,9 @@ import type {
   UserCategory,
   QualityMultiplier,
   GrowthMultiplier,
+  ProductType,
 } from './types';
+import { RENEWAL_RATE_PRODUCTS } from './types';
 
 /**
  * Configuración de niveles de cumplimiento de meta
@@ -144,6 +146,25 @@ export const GROWTH_MULTIPLIERS: GrowthMultiplierConfig[] = [
     label: 'Crecimiento D - Bajo',
   },
 ];
+
+/**
+ * Para Nano, ATN y Cashi el multiplicador de "Crecimiento" mide la tasa de
+ * conversión de renovaciones, no el crecimiento del portafolio.
+ */
+export function getGrowthMetricLabels(product?: ProductType) {
+  if (product && RENEWAL_RATE_PRODUCTS.includes(product)) {
+    return {
+      title: 'Tasa de Conversión de Renovaciones',
+      shortLabel: 'Renovaciones',
+      description: 'Reconoce lograr que clientes satisfechos vuelvan a solicitar crédito.',
+    };
+  }
+  return {
+    title: 'Crecimiento',
+    shortLabel: 'Crecimiento',
+    description: 'El servicio y lealtad del cliente se reflejan en renovaciones y crecimiento.',
+  };
+}
 
 /**
  * Obtiene la configuración de nivel de cumplimiento según el porcentaje

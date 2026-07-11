@@ -23,9 +23,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { calculateFinalBonus } from '@/lib/incentives-config';
+import { calculateFinalBonus, getGrowthMetricLabels } from '@/lib/incentives-config';
 import { useIncentiveConfig } from '@/hooks/use-incentive-config';
-import type { UserCategory, QualityMultiplier, GrowthMultiplier } from '@/lib/types';
+import type { UserCategory, QualityMultiplier, GrowthMultiplier, ProductType } from '@/lib/types';
+import { CATEGORIES } from '@/lib/types';
 import { Sparkles, TrendingUp, Award, Target } from 'lucide-react';
 
 const formatCurrency = (value: number) => {
@@ -169,6 +170,8 @@ export default function OriginadoresPage() {
     l => l.level === calculation.achievementLevel
   );
 
+  const growthMetricLabels = getGrowthMetricLabels(userProfile?.product as ProductType | undefined);
+
   const getLevelColor = (level: string) => {
     switch (level) {
       case 'fuera_de_juego':
@@ -217,8 +220,8 @@ export default function OriginadoresPage() {
             <CardContent>
               <div className="text-center p-4 bg-white rounded-lg shadow-sm">
                 <p className="text-lg font-semibold text-foreground">
-                  Bono Final = Colocación × % Bono Base × Multiplicador Calidad × Multiplicador
-                  Crecimiento
+                  Bono Final = Colocación × % Bono Base × Multiplicador Calidad × Multiplicador{' '}
+                  {growthMetricLabels.shortLabel}
                 </p>
               </div>
             </CardContent>
@@ -315,11 +318,11 @@ export default function OriginadoresPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="G0">G0</SelectItem>
-                        <SelectItem value="G1">G1</SelectItem>
-                        <SelectItem value="G2">G2</SelectItem>
-                        <SelectItem value="G3">G3</SelectItem>
-                        <SelectItem value="G4">G4 - Elite</SelectItem>
+                        {CATEGORIES.map(cat => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -346,7 +349,7 @@ export default function OriginadoresPage() {
 
                   {/* Growth Multiplier */}
                   <div className="space-y-2">
-                    <Label htmlFor="growth">Multiplicador de Crecimiento</Label>
+                    <Label htmlFor="growth">Multiplicador de {growthMetricLabels.title}</Label>
                     <Select
                       value={growthMultiplier}
                       onValueChange={v => setGrowthMultiplier(v as GrowthMultiplier)}
@@ -421,7 +424,7 @@ export default function OriginadoresPage() {
                     </span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-white rounded-lg">
-                    <span className="text-sm text-muted-foreground">× Crecimiento</span>
+                    <span className="text-sm text-muted-foreground">× {growthMetricLabels.shortLabel}</span>
                     <span className="font-semibold">
                       ×{calculation.growthMultiplierValue.toFixed(2)}
                     </span>
@@ -467,7 +470,7 @@ export default function OriginadoresPage() {
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="bonus">% Bono Base</TabsTrigger>
                   <TabsTrigger value="quality">Calidad</TabsTrigger>
-                  <TabsTrigger value="growth">Crecimiento</TabsTrigger>
+                  <TabsTrigger value="growth">{growthMetricLabels.shortLabel}</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="bonus" className="mt-4">
@@ -477,11 +480,11 @@ export default function OriginadoresPage() {
                         <tr className="border-b bg-muted/50">
                           <th className="p-2 text-left font-medium">Cumplimiento Meta</th>
                           <th className="p-2 text-left font-medium">Nivel</th>
-                          <th className="p-2 text-center font-medium">G0</th>
-                          <th className="p-2 text-center font-medium">G1</th>
-                          <th className="p-2 text-center font-medium">G2</th>
-                          <th className="p-2 text-center font-medium">G3</th>
-                          <th className="p-2 text-center font-medium">G4</th>
+                          {CATEGORIES.map(cat => (
+                            <th key={cat.value} className="p-2 text-center font-medium">
+                              {cat.label}
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
@@ -503,11 +506,11 @@ export default function OriginadoresPage() {
                                 {level.label}
                               </Badge>
                             </td>
-                            <td className="p-2 text-center">{level.bonusPercentages.G0}%</td>
-                            <td className="p-2 text-center">{level.bonusPercentages.G1}%</td>
-                            <td className="p-2 text-center">{level.bonusPercentages.G2}%</td>
-                            <td className="p-2 text-center">{level.bonusPercentages.G3}%</td>
-                            <td className="p-2 text-center">{level.bonusPercentages.G4}%</td>
+                            {CATEGORIES.map(cat => (
+                              <td key={cat.value} className="p-2 text-center">
+                                {level.bonusPercentages[cat.value]}%
+                              </td>
+                            ))}
                           </tr>
                         ))}
                       </tbody>
@@ -558,7 +561,7 @@ export default function OriginadoresPage() {
                         )}
                       >
                         <div>
-                          <p className="font-semibold">Crecimiento {g.level}</p>
+                          <p className="font-semibold">{growthMetricLabels.shortLabel} {g.level}</p>
                           <p className="text-sm text-muted-foreground">{g.label}</p>
                         </div>
                         <Badge
@@ -571,8 +574,7 @@ export default function OriginadoresPage() {
                     ))}
                   </div>
                   <p className="text-sm text-muted-foreground mt-4 p-3 bg-muted/50 rounded-lg">
-                    Un excelente servicio y la lealtad del cliente se reflejan en las renovaciones y
-                    en el crecimiento de tu portafolio.
+                    {growthMetricLabels.description}
                   </p>
                 </TabsContent>
               </Tabs>

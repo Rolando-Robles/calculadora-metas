@@ -49,15 +49,37 @@ export type GoalAchievementLevel = 'fuera_de_juego' | 'en_juego' | 'cumplido' | 
 
 export type UserCategory = 'G0' | 'G1' | 'G2' | 'G3' | 'G4';
 
+/**
+ * Nivel Jaguar: nombres visibles de las categorías. G0 ya no es seleccionable
+ * (los códigos internos G1-G4 se conservan para no romper datos existentes).
+ */
+export const CATEGORY_LABELS: Record<UserCategory, string> = {
+  G0: 'G0',
+  G1: 'Formación',
+  G2: 'Territorio',
+  G3: 'Consolidado',
+  G4: 'Élite',
+};
+
+export const CATEGORIES: { value: UserCategory; label: string }[] = [
+  { value: 'G1', label: CATEGORY_LABELS.G1 },
+  { value: 'G2', label: CATEGORY_LABELS.G2 },
+  { value: 'G3', label: CATEGORY_LABELS.G3 },
+  { value: 'G4', label: CATEGORY_LABELS.G4 },
+];
+
 export type ProductType = 'aviva_contigo' | 'aviva_tu_negocio' | 'aviva_tu_compra' | 'casa_marchand' | 'construrama';
 
 export const PRODUCTS: { value: ProductType; label: string }[] = [
-  { value: 'aviva_contigo', label: 'Aviva Contigo' },
-  { value: 'aviva_tu_negocio', label: 'Aviva Tu Negocio' },
-  { value: 'aviva_tu_compra', label: 'Aviva Tu Compra' },
+  { value: 'aviva_contigo', label: 'Nano' },
+  { value: 'aviva_tu_negocio', label: 'ATN' },
+  { value: 'aviva_tu_compra', label: 'Cashi' },
   { value: 'casa_marchand', label: 'Casa Marchand' },
   { value: 'construrama', label: 'Construrama' },
 ];
+
+/** Productos donde el multiplicador de "Crecimiento" se mide como tasa de conversión de renovaciones */
+export const RENEWAL_RATE_PRODUCTS: ProductType[] = ['aviva_contigo', 'aviva_tu_negocio', 'aviva_tu_compra'];
 
 export type QualityMultiplier = 'A' | 'B' | 'C' | 'D';
 

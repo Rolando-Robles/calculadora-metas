@@ -20,6 +20,7 @@ import type {
   QualityMultiplier,
   GrowthMultiplier,
 } from '@/lib/types';
+import { CATEGORY_LABELS, PRODUCTS } from '@/lib/types';
 import { Sparkles, Target, TrendingUp, Zap, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
@@ -311,12 +312,16 @@ export default function ProyeccionesPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-muted-foreground">Categoría</p>
-                      <Badge variant="secondary" className="text-lg px-3 py-1">{userGoal.category}</Badge>
+                      <Badge variant="secondary" className="text-lg px-3 py-1">
+                        {CATEGORY_LABELS[userGoal.category as UserCategory]}
+                      </Badge>
                     </div>
                     {userGoal.product && (
                       <div className="text-right">
                         <p className="text-sm text-muted-foreground">Producto</p>
-                        <Badge variant="outline" className="text-sm">{userGoal.product}</Badge>
+                        <Badge variant="outline" className="text-sm">
+                          {PRODUCTS.find(p => p.value === userGoal.product)?.label || userGoal.product}
+                        </Badge>
                       </div>
                     )}
                   </div>
@@ -460,7 +465,7 @@ export default function ProyeccionesPage() {
                           <div className="text-center p-2 bg-muted/50 rounded">
                             <p className="text-xs text-muted-foreground mb-1">Cat.</p>
                             <Badge variant="secondary" className="text-xs">
-                              {scenario.category}
+                              {CATEGORY_LABELS[scenario.category]}
                             </Badge>
                           </div>
                           <div className="text-center p-2 bg-muted/50 rounded">
