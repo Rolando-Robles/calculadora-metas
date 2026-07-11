@@ -41,7 +41,7 @@ import type {
   UserCategory,
   ProductType,
 } from '@/lib/types';
-import { PRODUCTS } from '@/lib/types';
+import { PRODUCTS, CATEGORIES } from '@/lib/types';
 import {
   GOAL_ACHIEVEMENT_LEVELS,
   QUALITY_MULTIPLIERS,
@@ -425,11 +425,11 @@ function AdminContent() {
                                       <SelectValue placeholder="Seleccionar" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="G0">G0</SelectItem>
-                                      <SelectItem value="G1">G1</SelectItem>
-                                      <SelectItem value="G2">G2</SelectItem>
-                                      <SelectItem value="G3">G3</SelectItem>
-                                      <SelectItem value="G4">G4 - Elite</SelectItem>
+                                      {CATEGORIES.map((cat) => (
+                                        <SelectItem key={cat.value} value={cat.value}>
+                                          {cat.label}
+                                        </SelectItem>
+                                      ))}
                                     </SelectContent>
                                   </Select>
                                 </TableCell>
@@ -594,11 +594,9 @@ function AdminContent() {
                           <TableHead>Nivel</TableHead>
                           <TableHead>Min %</TableHead>
                           <TableHead>Max %</TableHead>
-                          <TableHead>G0 (%)</TableHead>
-                          <TableHead>G1 (%)</TableHead>
-                          <TableHead>G2 (%)</TableHead>
-                          <TableHead>G3 (%)</TableHead>
-                          <TableHead>G4 (%)</TableHead>
+                          {CATEGORIES.map((cat) => (
+                            <TableHead key={cat.value}>{cat.label} (%)</TableHead>
+                          ))}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -632,61 +630,19 @@ function AdminContent() {
                                 placeholder="∞"
                               />
                             </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                value={level.bonusPercentages.G0}
-                                onChange={e =>
-                                  updateGoalLevel(index, 'bonusPercentages.G0', e.target.value)
-                                }
-                                className="w-20"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                value={level.bonusPercentages.G1}
-                                onChange={e =>
-                                  updateGoalLevel(index, 'bonusPercentages.G1', e.target.value)
-                                }
-                                className="w-20"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                value={level.bonusPercentages.G2}
-                                onChange={e =>
-                                  updateGoalLevel(index, 'bonusPercentages.G2', e.target.value)
-                                }
-                                className="w-20"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                value={level.bonusPercentages.G3}
-                                onChange={e =>
-                                  updateGoalLevel(index, 'bonusPercentages.G3', e.target.value)
-                                }
-                                className="w-20"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="number"
-                                step="0.1"
-                                value={level.bonusPercentages.G4}
-                                onChange={e =>
-                                  updateGoalLevel(index, 'bonusPercentages.G4', e.target.value)
-                                }
-                                className="w-20"
-                              />
-                            </TableCell>
+                            {CATEGORIES.map((cat) => (
+                              <TableCell key={cat.value}>
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  value={level.bonusPercentages[cat.value]}
+                                  onChange={e =>
+                                    updateGoalLevel(index, `bonusPercentages.${cat.value}`, e.target.value)
+                                  }
+                                  className="w-20"
+                                />
+                              </TableCell>
+                            ))}
                           </TableRow>
                         ))}
                       </TableBody>

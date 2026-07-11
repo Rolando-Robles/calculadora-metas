@@ -35,6 +35,7 @@ import {
   GROWTH_MULTIPLIERS,
 } from '@/lib/incentives-config';
 import type { UserCategory, UserGoalConfig } from '@/lib/types';
+import { CATEGORIES } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 const formatCurrency = (value: number) => {
@@ -185,11 +186,11 @@ export default function ConfiguracionPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="G0">G0</SelectItem>
-                          <SelectItem value="G1">G1</SelectItem>
-                          <SelectItem value="G2">G2</SelectItem>
-                          <SelectItem value="G3">G3</SelectItem>
-                          <SelectItem value="G4">G4 - Elite</SelectItem>
+                          {CATEGORIES.map((cat) => (
+                            <SelectItem key={cat.value} value={cat.value}>
+                              {cat.label}
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -373,11 +374,11 @@ export default function ConfiguracionPage() {
                         <TableRow>
                           <TableHead>Cumplimiento Meta</TableHead>
                           <TableHead>Nivel</TableHead>
-                          <TableHead className="text-center">G0</TableHead>
-                          <TableHead className="text-center">G1</TableHead>
-                          <TableHead className="text-center">G2</TableHead>
-                          <TableHead className="text-center">G3</TableHead>
-                          <TableHead className="text-center">G4</TableHead>
+                          {CATEGORIES.map((cat) => (
+                            <TableHead key={cat.value} className="text-center">
+                              {cat.label}
+                            </TableHead>
+                          ))}
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -391,21 +392,11 @@ export default function ConfiguracionPage() {
                             <TableCell>
                               <Badge variant="outline">{level.label}</Badge>
                             </TableCell>
-                            <TableCell className="text-center font-semibold">
-                              {level.bonusPercentages.G0}%
-                            </TableCell>
-                            <TableCell className="text-center font-semibold">
-                              {level.bonusPercentages.G1}%
-                            </TableCell>
-                            <TableCell className="text-center font-semibold">
-                              {level.bonusPercentages.G2}%
-                            </TableCell>
-                            <TableCell className="text-center font-semibold">
-                              {level.bonusPercentages.G3}%
-                            </TableCell>
-                            <TableCell className="text-center font-semibold">
-                              {level.bonusPercentages.G4}%
-                            </TableCell>
+                            {CATEGORIES.map((cat) => (
+                              <TableCell key={cat.value} className="text-center font-semibold">
+                                {level.bonusPercentages[cat.value]}%
+                              </TableCell>
+                            ))}
                           </TableRow>
                         ))}
                       </TableBody>
