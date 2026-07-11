@@ -22,12 +22,13 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 import { calculateFinalBonus, getGrowthMetricLabels } from '@/lib/incentives-config';
 import { useIncentiveConfig } from '@/hooks/use-incentive-config';
 import type { UserCategory, QualityMultiplier, GrowthMultiplier, ProductType } from '@/lib/types';
 import { CATEGORIES } from '@/lib/types';
-import { Sparkles, TrendingUp, Award, Target } from 'lucide-react';
+import { Sparkles, TrendingUp, Award, Target, AlertCircle } from 'lucide-react';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('es-MX', {
@@ -45,6 +46,7 @@ const formatPercentage = (value: number) => {
 export default function OriginadoresPage() {
   const { userProfile } = useAuth();
   const [loadingUserGoal, setLoadingUserGoal] = useState(true);
+  const [noGoalAssigned, setNoGoalAssigned] = useState(false);
 
   // Cargar configuraciones dinámicas desde Firestore
   const { goalLevels, qualityMults, growthMults, loading: configLoading } = useIncentiveConfig();
@@ -52,13 +54,13 @@ export default function OriginadoresPage() {
   const [colocacion, setColocacion] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('calculadora-colocacion');
-      return saved ? Number(saved) : 300000;
+      return saved ? Number(saved) : 0;
     }
-    return 300000;
+    return 0;
   });
 
   // META viene de Firestore, no de localStorage
-  const [meta, setMeta] = useState(300000);
+  const [meta, setMeta] = useState(0);
 
   const [category, setCategory] = useState<UserCategory>(() => {
     if (typeof window !== 'undefined') {
@@ -108,13 +110,19 @@ export default function OriginadoresPage() {
           if (currentGoal.category) {
             setCategory(currentGoal.category);
           }
+          setNoGoalAssigned(false);
           console.log('✅ Meta cargada:', currentGoal.monthlyGoal);
-        } else if (userProfile.category) {
-          // Si no hay meta pero el usuario tiene categoría, usarla
-          setCategory(userProfile.category as UserCategory);
-          console.log('ℹ️ No hay meta, usando categoría del perfil');
         } else {
-          console.log('⚠️ No se encontró meta para el usuario');
+          // Sin meta asignada: no mostrar valores por default que confundan al usuario
+          setMeta(0);
+          setColocacion(0);
+          setNoGoalAssigned(true);
+          if (userProfile.category) {
+            setCategory(userProfile.category as UserCategory);
+            console.log('ℹ️ No hay meta, usando categoría del perfil');
+          } else {
+            console.log('⚠️ No se encontró meta para el usuario');
+          }
         }
       } catch (error) {
         console.error('❌ Error cargando meta del usuario:', error);
@@ -209,6 +217,17 @@ export default function OriginadoresPage() {
 
       <div className="flex-1 overflow-auto p-4 md:p-6 pb-24 md:pb-6">
         <div className="mx-auto max-w-6xl space-y-6">
+          {!loadingUserGoal && noGoalAssigned && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                <strong>No tienes una meta asignada</strong> para el mes actual.
+                Por favor contacta a tu administrador para que te asigne una meta mensual.
+                Mientras tanto, los valores se muestran en $0.
+              </AlertDescription>
+            </Alert>
+          )}
+
           {/* Formula Card */}
           <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-secondary/5">
             <CardHeader>
@@ -306,7 +325,9 @@ export default function OriginadoresPage() {
                       className="text-lg bg-muted cursor-not-allowed"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Meta configurada por el administrador
+                      {noGoalAssigned
+                        ? 'Aún no tienes una meta configurada por el administrador'
+                        : 'Meta configurada por el administrador'}
                     </p>
                   </div>
 
