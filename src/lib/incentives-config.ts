@@ -156,12 +156,14 @@ export function getGrowthMetricLabels(product?: ProductType) {
     return {
       title: 'Tasa de Conversión de Renovaciones',
       shortLabel: 'Renovaciones',
+      abbreviation: 'Renov.',
       description: 'Reconoce lograr que clientes satisfechos vuelvan a solicitar crédito.',
     };
   }
   return {
     title: 'Crecimiento',
     shortLabel: 'Crecimiento',
+    abbreviation: 'Crec.',
     description: 'El servicio y lealtad del cliente se reflejan en renovaciones y crecimiento.',
   };
 }
