@@ -121,9 +121,41 @@ function AdminContent() {
         qualityMultipliers: qualityMults,
         growthMultipliers: growthMults,
       });
+
+      // Este botón es el único visible en todas las pestañas, así que también
+      // guarda cualquier meta de usuario que se haya escrito y no se haya
+      // guardado todavía con el botón "Guardar" de su fila.
+      const pendingUserIds = Object.keys(tempGoals);
+      let goalsSaved = 0;
+      let goalsFailed = 0;
+      const savedUserIds: string[] = [];
+      for (const userId of pendingUserIds) {
+        const user = registeredUsers.find(u => u.id === userId);
+        if (!user) continue;
+        const result = await saveGoalForUser(user, tempGoals[userId]);
+        if (result.ok) {
+          goalsSaved++;
+          savedUserIds.push(userId);
+        } else {
+          goalsFailed++;
+        }
+      }
+      if (savedUserIds.length > 0) {
+        setTempGoals(prev => {
+          const rest = { ...prev };
+          savedUserIds.forEach(id => delete rest[id]);
+          return rest;
+        });
+      }
+
       toast({
         title: 'Éxito',
-        description: 'Configuración guardada correctamente',
+        description:
+          goalsSaved > 0 || goalsFailed > 0
+            ? `Configuración guardada. ${goalsSaved} meta(s) de usuario guardada(s)${
+                goalsFailed > 0 ? `, ${goalsFailed} con errores (revisa Categoría/Meta/Periodo)` : ''
+              }.`
+            : 'Configuración guardada correctamente',
       });
     } catch (error) {
       console.error('Error saving configuration:', error);
@@ -195,74 +227,48 @@ function AdminContent() {
     return userGoals.find(g => g.userEmail === userEmail && g.period === currentPeriod);
   };
 
-  const handleUpdateUserGoal = async (userId: string, field: string, value: any) => {
+  // Guarda la meta de un usuario en Firestore y refleja el resultado en el estado local.
+  // Se usa tanto desde el botón "Guardar" de cada fila como desde "Guardar Cambios",
+  // para que cualquiera de los dos botones persista las metas editadas.
+  const saveGoalForUser = async (
+    user: any,
+    tempData: { goal: string; period: string }
+  ): Promise<{ ok: boolean; reason?: string }> => {
+    if (!tempData.goal || !tempData.period) {
+      return { ok: false, reason: 'Falta meta o periodo' };
+    }
+    if (!user.category) {
+      return { ok: false, reason: 'Falta asignar categoría al usuario' };
+    }
+
     try {
-      const currentPeriod = new Date().toISOString().slice(0, 7);
-      const existingGoal = getUserGoal(userId);
-      const user = registeredUsers.find(u => u.id === userId);
+      const goalToSave: UserGoalConfig = {
+        userEmail: user.email,
+        monthlyGoal: Number(tempData.goal),
+        category: user.category as UserCategory,
+        product: user.product,
+        period: tempData.period,
+      };
 
-      if (!user?.email) {
-        toast({
-          title: 'Error',
-          description: 'No se encontró el email del usuario',
-          variant: 'destructive',
-        });
-        return;
-      }
+      await saveUserGoal(goalToSave);
 
-      console.log('📝 Updating goal:', { userId, userEmail: user.email, field, value, existingGoal });
-
-      if (existingGoal) {
-        // Update existing goal
-        const updatedGoal: UserGoalConfig = {
-          userEmail: user.email,
-          monthlyGoal: field === 'monthlyGoal' ? Number(value) : existingGoal.monthlyGoal,
-          category: field === 'category' ? value : (existingGoal.category || user?.category || 'G4'),
-          product: field === 'product' ? value : (existingGoal.product || user?.product),
-          period: field === 'period' ? value : existingGoal.period,
-        };
-
-        console.log('✏️ Updating existing goal:', updatedGoal);
-        await saveUserGoal(updatedGoal);
-
-        // Update local state only
-        setUserGoals(prev => {
-          const updated = prev.map(g =>
-            g.userEmail === user.email && g.period === existingGoal.period
-              ? { ...g, ...updatedGoal }
+      const goalId = `${user.email.replace('@', '_at_').replace(/\./g, '_')}-${tempData.period}`;
+      setUserGoals(prev => {
+        const existing = prev.find(g => g.userEmail === user.email && g.period === tempData.period);
+        if (existing) {
+          return prev.map(g =>
+            g.userEmail === user.email && g.period === tempData.period
+              ? { ...goalToSave, id: goalId }
               : g
           );
-          console.log('✅ Local state updated:', updated);
-          return updated;
-        });
-      } else {
-        // Create new goal
-        const newGoal: UserGoalConfig = {
-          userEmail: user.email,
-          monthlyGoal: field === 'monthlyGoal' ? Number(value) : 300000,
-          category: (user?.category as UserCategory) || 'G4',
-          product: user?.product,
-          period: field === 'period' ? value : currentPeriod,
-        };
-
-        console.log('🆕 Creating new goal:', newGoal);
-        await saveUserGoal(newGoal);
-
-        // Add to local state
-        const goalId = `${user.email.replace('@', '_at_').replace(/\./g, '_')}-${newGoal.period}`;
-        setUserGoals(prev => {
-          const updated = [...prev, { ...newGoal, id: goalId }];
-          console.log('✅ Local state with new goal:', updated);
-          return updated;
-        });
-      }
-    } catch (error) {
-      console.error('❌ Error updating goal:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo actualizar la meta',
-        variant: 'destructive',
+        }
+        return [...prev, { ...goalToSave, id: goalId }];
       });
+
+      return { ok: true };
+    } catch (error) {
+      console.error('❌ Error saving goal:', error);
+      return { ok: false, reason: 'Error al guardar en la base de datos' };
     }
   };
 
@@ -498,62 +504,21 @@ function AdminContent() {
                                   <Button
                                     size="sm"
                                     onClick={async () => {
-                                      if (!tempData.goal || !tempData.period) {
-                                        toast({
-                                          title: 'Error',
-                                          description: 'Por favor completa meta y periodo',
-                                          variant: 'destructive',
+                                      const result = await saveGoalForUser(user, tempData);
+                                      if (result.ok) {
+                                        // Ya no hay edición pendiente para este usuario
+                                        setTempGoals(prev => {
+                                          const { [user.id]: _removed, ...rest } = prev;
+                                          return rest;
                                         });
-                                        return;
-                                      }
-
-                                      if (!user.category) {
-                                        toast({
-                                          title: 'Error',
-                                          description: 'Primero asigna una categoría al usuario',
-                                          variant: 'destructive',
-                                        });
-                                        return;
-                                      }
-
-                                      try {
-                                        const goalToSave: UserGoalConfig = {
-                                          userEmail: user.email,
-                                          monthlyGoal: Number(tempData.goal),
-                                          category: user.category as UserCategory,
-                                          product: user.product,
-                                          period: tempData.period,
-                                        };
-
-                                        console.log('💾 Saving goal:', goalToSave);
-                                        await saveUserGoal(goalToSave);
-
-                                        // Update local state
-                                        const goalId = `${user.email.replace('@', '_at_').replace(/\./g, '_')}-${tempData.period}`;
-                                        setUserGoals(prev => {
-                                          const existing = prev.find(g => g.userEmail === user.email && g.period === tempData.period);
-                                          if (existing) {
-                                            return prev.map(g =>
-                                              g.userEmail === user.email && g.period === tempData.period
-                                                ? { ...goalToSave, id: goalId }
-                                                : g
-                                            );
-                                          } else {
-                                            return [...prev, { ...goalToSave, id: goalId }];
-                                          }
-                                        });
-
-                                        console.log('✅ Goal saved successfully to Firestore');
-
                                         toast({
                                           title: '✅ Meta guardada',
                                           description: `Meta de ${formatCurrency(Number(tempData.goal))} guardada correctamente`,
                                         });
-                                      } catch (error) {
-                                        console.error('❌ Error saving goal:', error);
+                                      } else {
                                         toast({
                                           title: 'Error',
-                                          description: 'No se pudo guardar la meta',
+                                          description: result.reason || 'No se pudo guardar la meta',
                                           variant: 'destructive',
                                         });
                                       }
