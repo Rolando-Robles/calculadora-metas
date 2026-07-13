@@ -13,12 +13,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { calculateFinalBonus } from '@/lib/incentives-config';
+import { calculateFinalBonus, getGrowthMetricLabels } from '@/lib/incentives-config';
 import { useIncentiveConfig } from '@/hooks/use-incentive-config';
 import type {
   UserCategory,
   QualityMultiplier,
   GrowthMultiplier,
+  ProductType,
 } from '@/lib/types';
 import { CATEGORY_LABELS, PRODUCTS } from '@/lib/types';
 import { Sparkles, Target, TrendingUp, Zap, AlertCircle } from 'lucide-react';
@@ -273,6 +274,8 @@ export default function ProyeccionesPage() {
     );
   }
 
+  const growthMetricLabels = getGrowthMetricLabels(userGoal?.product as ProductType | undefined);
+
   return (
     <div className="flex flex-col h-full bg-background">
       <header className="sticky top-0 z-10 border-b bg-gradient-to-r from-primary to-secondary p-6 text-white">
@@ -480,7 +483,7 @@ export default function ProyeccionesPage() {
                             </Badge>
                           </div>
                           <div className="text-center p-2 bg-muted/50 rounded">
-                            <p className="text-xs text-muted-foreground mb-1">Crec.</p>
+                            <p className="text-xs text-muted-foreground mb-1">{growthMetricLabels.abbreviation}</p>
                             <Badge
                               className={cn('text-xs', {
                                 'bg-green-500 text-white': scenario.growthMultiplier === 'A',

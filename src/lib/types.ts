@@ -71,9 +71,9 @@ export const CATEGORIES: { value: UserCategory; label: string }[] = [
 export type ProductType = 'aviva_contigo' | 'aviva_tu_negocio' | 'aviva_tu_compra' | 'casa_marchand' | 'construrama';
 
 export const PRODUCTS: { value: ProductType; label: string }[] = [
-  { value: 'aviva_contigo', label: 'Nano' },
-  { value: 'aviva_tu_negocio', label: 'ATN' },
-  { value: 'aviva_tu_compra', label: 'Cashi' },
+  { value: 'aviva_contigo', label: 'Aviva Contigo' },
+  { value: 'aviva_tu_negocio', label: 'Aviva Tu Negocio' },
+  { value: 'aviva_tu_compra', label: 'Aviva Tu Compra' },
   { value: 'casa_marchand', label: 'Casa Marchand' },
   { value: 'construrama', label: 'Construrama' },
 ];
