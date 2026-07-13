@@ -24,7 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
-import { calculateFinalBonus, getGrowthMetricLabels } from '@/lib/incentives-config';
+import { calculateFinalBonus, getGrowthMetricLabels, getApplicableGrowthMultipliers } from '@/lib/incentives-config';
 import { useIncentiveConfig } from '@/hooks/use-incentive-config';
 import type { UserCategory, QualityMultiplier, GrowthMultiplier, ProductType } from '@/lib/types';
 import { CATEGORIES } from '@/lib/types';
@@ -49,7 +49,7 @@ export default function OriginadoresPage() {
   const [noGoalAssigned, setNoGoalAssigned] = useState(false);
 
   // Cargar configuraciones dinámicas desde Firestore
-  const { goalLevels, qualityMults, growthMults, loading: configLoading } = useIncentiveConfig();
+  const { goalLevels, qualityMults, growthMults, renewalMults, loading: configLoading } = useIncentiveConfig();
 
   const [colocacion, setColocacion] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -161,6 +161,9 @@ export default function OriginadoresPage() {
     }
   }, [growthMultiplier]);
 
+  const userProduct = userProfile?.product as ProductType | undefined;
+  const applicableGrowthMults = getApplicableGrowthMultipliers(userProduct, growthMults, renewalMults);
+
   const calculation = useMemo(() => {
     return calculateFinalBonus(
       colocacion,
@@ -170,15 +173,15 @@ export default function OriginadoresPage() {
       growthMultiplier,
       goalLevels,
       qualityMults,
-      growthMults
+      applicableGrowthMults
     );
-  }, [colocacion, meta, category, qualityMultiplier, growthMultiplier, goalLevels, qualityMults, growthMults]);
+  }, [colocacion, meta, category, qualityMultiplier, growthMultiplier, goalLevels, qualityMults, applicableGrowthMults]);
 
   const achievementLevelConfig = goalLevels.find(
     l => l.level === calculation.achievementLevel
   );
 
-  const growthMetricLabels = getGrowthMetricLabels(userProfile?.product as ProductType | undefined);
+  const growthMetricLabels = getGrowthMetricLabels(userProduct);
 
   const getLevelColor = (level: string) => {
     switch (level) {
@@ -379,7 +382,7 @@ export default function OriginadoresPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {growthMults.map(g => (
+                        {applicableGrowthMults.map(g => (
                           <SelectItem key={g.level} value={g.level}>
                             {g.label} (×{g.value.toFixed(2)})
                           </SelectItem>
@@ -571,7 +574,7 @@ export default function OriginadoresPage() {
 
                 <TabsContent value="growth" className="mt-4">
                   <div className="grid gap-3">
-                    {growthMults.map(g => (
+                    {applicableGrowthMults.map(g => (
                       <div
                         key={g.level}
                         className={cn(

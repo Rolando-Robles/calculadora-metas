@@ -46,6 +46,7 @@ import {
   GOAL_ACHIEVEMENT_LEVELS,
   QUALITY_MULTIPLIERS,
   GROWTH_MULTIPLIERS,
+  RENEWAL_MULTIPLIERS,
 } from '@/lib/incentives-config';
 import {
   Select,
@@ -78,6 +79,7 @@ function AdminContent() {
   const [goalLevels, setGoalLevels] = useState<GoalAchievementConfig[]>([]);
   const [qualityMults, setQualityMults] = useState<QualityMultiplierConfig[]>([]);
   const [growthMults, setGrowthMults] = useState<GrowthMultiplierConfig[]>([]);
+  const [renewalMults, setRenewalMults] = useState<GrowthMultiplierConfig[]>([]);
   const [userGoals, setUserGoals] = useState<(UserGoalConfig & { id: string })[]>([]);
   const [registeredUsers, setRegisteredUsers] = useState<any[]>([]);
   const [editingGoal, setEditingGoal] = useState<{[key: string]: any}>({});
@@ -95,6 +97,7 @@ function AdminContent() {
       setGoalLevels(config.goalAchievementLevels || GOAL_ACHIEVEMENT_LEVELS);
       setQualityMults(config.qualityMultipliers || QUALITY_MULTIPLIERS);
       setGrowthMults(config.growthMultipliers || GROWTH_MULTIPLIERS);
+      setRenewalMults(config.renewalMultipliers || RENEWAL_MULTIPLIERS);
 
       const goals = await getAllUserGoals();
       setUserGoals(goals);
@@ -120,6 +123,7 @@ function AdminContent() {
         goalAchievementLevels: goalLevels,
         qualityMultipliers: qualityMults,
         growthMultipliers: growthMults,
+        renewalMultipliers: renewalMults,
       });
 
       // Este botón es el único visible en todas las pestañas, así que también
@@ -218,6 +222,12 @@ function AdminContent() {
     const updated = [...growthMults];
     updated[index] = { ...updated[index], value: Number(value) };
     setGrowthMults(updated);
+  };
+
+  const updateRenewalMult = (index: number, value: number) => {
+    const updated = [...renewalMults];
+    updated[index] = { ...updated[index], value: Number(value) };
+    setRenewalMults(updated);
   };
 
   const getUserGoal = (userId: string) => {
@@ -325,11 +335,12 @@ function AdminContent() {
           </div>
 
           <Tabs defaultValue="users" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
               <TabsTrigger value="users">Usuarios y Metas</TabsTrigger>
               <TabsTrigger value="goal-levels">Niveles</TabsTrigger>
               <TabsTrigger value="quality">Calidad</TabsTrigger>
               <TabsTrigger value="growth">Crecimiento</TabsTrigger>
+              <TabsTrigger value="renewal">Renovaciones</TabsTrigger>
             </TabsList>
 
             {/* Users and Goals Combined */}
@@ -688,6 +699,47 @@ function AdminContent() {
                             step="0.01"
                             value={mult.value}
                             onChange={e => updateGrowthMult(index, Number(e.target.value))}
+                            className="w-24"
+                          />
+                          <Badge>×{mult.value.toFixed(2)}</Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Renewal Multipliers */}
+            <TabsContent value="renewal" className="mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Multiplicadores de Renovaciones</CardTitle>
+                  <CardDescription>
+                    Para Nano, ATN y Cashi: reconoce lograr que clientes satisfechos vuelvan a solicitar crédito
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {renewalMults.map((mult, index) => (
+                      <div
+                        key={mult.level}
+                        className="flex items-center justify-between p-4 border rounded-lg"
+                      >
+                        <div>
+                          <p className="font-semibold">
+                            Renovación {mult.level}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{mult.label}</p>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <Label htmlFor={`renewal-${mult.level}`}>Multiplicador:</Label>
+                          <Input
+                            id={`renewal-${mult.level}`}
+                            type="number"
+                            step="0.01"
+                            value={mult.value}
+                            onChange={e => updateRenewalMult(index, Number(e.target.value))}
                             className="w-24"
                           />
                           <Badge>×{mult.value.toFixed(2)}</Badge>

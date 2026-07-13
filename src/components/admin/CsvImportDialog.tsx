@@ -27,7 +27,15 @@ interface CsvImportDialogProps {
   onImportComplete: () => void;
 }
 
-const VALID_CATEGORIES: UserCategory[] = ['G1', 'G2', 'G3', 'G4'];
+// El CSV usa el nombre de la categoría en minúsculas y sin acento;
+// aquí se traduce al código interno (G1-G4) que ya usa el resto del sistema.
+const CATEGORY_NAME_TO_CODE: Record<string, UserCategory> = {
+  formacion: 'G1',
+  territorio: 'G2',
+  consolidado: 'G3',
+  elite: 'G4',
+};
+const VALID_CATEGORY_NAMES = Object.keys(CATEGORY_NAME_TO_CODE);
 const VALID_PRODUCTS = PRODUCTS.map(p => p.value);
 
 export function CsvImportDialog({ onImportComplete }: CsvImportDialogProps) {
@@ -41,7 +49,7 @@ export function CsvImportDialog({ onImportComplete }: CsvImportDialogProps) {
   };
 
   const validateCategory = (category: string): boolean => {
-    return VALID_CATEGORIES.includes(category as UserCategory);
+    return category.toLowerCase() in CATEGORY_NAME_TO_CODE;
   };
 
   const validateProduct = (product: string): boolean => {
@@ -122,7 +130,7 @@ export function CsvImportDialog({ onImportComplete }: CsvImportDialogProps) {
         }
 
         if (!validateCategory(category)) {
-          errors.push(`Categoría inválida (debe ser: ${VALID_CATEGORIES.join(', ')})`);
+          errors.push(`Categoría inválida (debe ser: ${VALID_CATEGORY_NAMES.join(', ')})`);
         }
 
         if (!validateProduct(product)) {
@@ -145,12 +153,13 @@ export function CsvImportDialog({ onImportComplete }: CsvImportDialogProps) {
         // Create/Update user and goal
         try {
           const uid = email.replace('@avivacredito.com', '').replace(/[^a-zA-Z0-9]/g, '_');
+          const categoryCode = CATEGORY_NAME_TO_CODE[category.toLowerCase()];
 
           // Create/Update user profile using firestore-service
           await createOrUpdateUserProfile(uid, {
             email,
             role: 'vendedor',
-            category,
+            category: categoryCode,
             product,
             name: email.split('@')[0],
           });
@@ -159,7 +168,7 @@ export function CsvImportDialog({ onImportComplete }: CsvImportDialogProps) {
           await saveUserGoal({
             userEmail: email,
             monthlyGoal: Number(goalStr),
-            category: category as UserCategory,
+            category: categoryCode,
             product: product as ProductType,
             period: currentPeriod,
           });
@@ -203,9 +212,9 @@ export function CsvImportDialog({ onImportComplete }: CsvImportDialogProps) {
 
   const downloadTemplate = () => {
     const template = `Correo,Categoría,Producto,Meta Mensual
-juan.perez@avivacredito.com,G2,aviva_contigo,200000
-maria.lopez@avivacredito.com,G3,aviva_tu_negocio,300000
-carlos.garcia@avivacredito.com,G1,aviva_tu_compra,150000`;
+juan.perez@avivacredito.com,territorio,aviva_contigo,200000
+maria.lopez@avivacredito.com,consolidado,aviva_tu_negocio,300000
+carlos.garcia@avivacredito.com,formacion,aviva_tu_compra,150000`;
 
     const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
@@ -249,7 +258,7 @@ carlos.garcia@avivacredito.com,G1,aviva_tu_compra,150000`;
             <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
               <li>• <strong>Primera fila:</strong> Encabezados (Correo, Categoría, Producto, Meta Mensual)</li>
               <li>• <strong>Correo:</strong> Debe terminar en @avivacredito.com</li>
-              <li>• <strong>Categoría:</strong> G1 (Formación), G2 (Territorio), G3 (Consolidado), o G4 (Élite)</li>
+              <li>• <strong>Categoría:</strong> formacion, territorio, consolidado, o elite (minúsculas, sin acento)</li>
               <li>• <strong>Producto:</strong> aviva_contigo, aviva_tu_negocio, aviva_tu_compra, casa_marchand, o construrama</li>
               <li>• <strong>Meta Mensual:</strong> Número (ejemplo: 200000)</li>
             </ul>

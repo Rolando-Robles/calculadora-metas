@@ -148,6 +148,34 @@ export const GROWTH_MULTIPLIERS: GrowthMultiplierConfig[] = [
 ];
 
 /**
+ * Configuración de multiplicadores de renovaciones (Nano, ATN, Cashi).
+ * Es una tabla independiente de Crecimiento: mismos niveles A-D, pero con
+ * sus propios porcentajes editables desde el panel de administración.
+ */
+export const RENEWAL_MULTIPLIERS: GrowthMultiplierConfig[] = [
+  {
+    level: 'A',
+    value: 1.15,
+    label: 'Renovación A - Excelente',
+  },
+  {
+    level: 'B',
+    value: 1.00,
+    label: 'Renovación B - Bueno',
+  },
+  {
+    level: 'C',
+    value: 0.80,
+    label: 'Renovación C - Regular',
+  },
+  {
+    level: 'D',
+    value: 0.60,
+    label: 'Renovación D - Bajo',
+  },
+];
+
+/**
  * Para Nano, ATN y Cashi el multiplicador de "Crecimiento" mide la tasa de
  * conversión de renovaciones, no el crecimiento del portafolio.
  */
@@ -166,6 +194,21 @@ export function getGrowthMetricLabels(product?: ProductType) {
     abbreviation: 'Crec.',
     description: 'El servicio y lealtad del cliente se reflejan en renovaciones y crecimiento.',
   };
+}
+
+/**
+ * Elige la tabla de multiplicadores que aplica según el producto: Renovaciones
+ * para Nano/ATN/Cashi, Crecimiento para el resto.
+ */
+export function getApplicableGrowthMultipliers(
+  product: ProductType | undefined,
+  growthMults: GrowthMultiplierConfig[] = GROWTH_MULTIPLIERS,
+  renewalMults: GrowthMultiplierConfig[] = RENEWAL_MULTIPLIERS
+): GrowthMultiplierConfig[] {
+  if (product && RENEWAL_RATE_PRODUCTS.includes(product)) {
+    return renewalMults;
+  }
+  return growthMults;
 }
 
 /**
