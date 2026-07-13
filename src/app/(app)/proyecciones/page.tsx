@@ -13,7 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { calculateFinalBonus, getGrowthMetricLabels } from '@/lib/incentives-config';
+import { calculateFinalBonus, getGrowthMetricLabels, getApplicableGrowthMultipliers } from '@/lib/incentives-config';
 import { useIncentiveConfig } from '@/hooks/use-incentive-config';
 import type {
   UserCategory,
@@ -60,7 +60,7 @@ export default function ProyeccionesPage() {
   const [loading, setLoading] = useState(true);
 
   // Cargar configuraciones dinámicas desde Firestore
-  const { goalLevels, qualityMults, growthMults, loading: configLoading } = useIncentiveConfig();
+  const { goalLevels, qualityMults, growthMults, renewalMults, loading: configLoading } = useIncentiveConfig();
 
   useEffect(() => {
     const loadUserGoal = async () => {
@@ -115,6 +115,11 @@ export default function ProyeccionesPage() {
 
     const newScenarios: Scenario[] = [];
     const userCategory = userGoal.category || 'G4';
+    const applicableGrowthMults = getApplicableGrowthMultipliers(
+      userGoal.product as ProductType | undefined,
+      growthMults,
+      renewalMults
+    );
 
     // Scenario 1: Conservative - Realistic baseline with basic performance
     const conservative = generateScenario(
@@ -125,7 +130,7 @@ export default function ProyeccionesPage() {
       userGoal.monthlyGoal,
       goalLevels,
       qualityMults,
-      growthMults
+      applicableGrowthMults
     );
     newScenarios.push({
       name: 'Escenario Conservador',
@@ -144,7 +149,7 @@ export default function ProyeccionesPage() {
       userGoal.monthlyGoal,
       goalLevels,
       qualityMults,
-      growthMults
+      applicableGrowthMults
     );
     newScenarios.push({
       name: 'Escenario Balanceado',
@@ -163,7 +168,7 @@ export default function ProyeccionesPage() {
       userGoal.monthlyGoal,
       goalLevels,
       qualityMults,
-      growthMults
+      applicableGrowthMults
     );
     newScenarios.push({
       name: 'Escenario Optimizado',

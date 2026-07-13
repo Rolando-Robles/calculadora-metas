@@ -19,6 +19,7 @@ import {
   GOAL_ACHIEVEMENT_LEVELS,
   QUALITY_MULTIPLIERS,
   GROWTH_MULTIPLIERS,
+  RENEWAL_MULTIPLIERS,
 } from './incentives-config';
 
 // ===== INCENTIVE CONFIGURATION =====
@@ -33,6 +34,7 @@ export async function getIncentiveConfig() {
     goalAchievementLevels: GOAL_ACHIEVEMENT_LEVELS,
     qualityMultipliers: QUALITY_MULTIPLIERS,
     growthMultipliers: GROWTH_MULTIPLIERS,
+    renewalMultipliers: RENEWAL_MULTIPLIERS,
   };
 }
 
@@ -40,6 +42,7 @@ export async function updateIncentiveConfig(config: {
   goalAchievementLevels?: GoalAchievementConfig[];
   qualityMultipliers?: QualityMultiplierConfig[];
   growthMultipliers?: GrowthMultiplierConfig[];
+  renewalMultipliers?: GrowthMultiplierConfig[];
 }) {
   await setDoc(doc(db, 'config', 'incentives'), config, { merge: true });
 }
@@ -51,6 +54,7 @@ export async function initializeDefaultConfig() {
       goalAchievementLevels: GOAL_ACHIEVEMENT_LEVELS,
       qualityMultipliers: QUALITY_MULTIPLIERS,
       growthMultipliers: GROWTH_MULTIPLIERS,
+      renewalMultipliers: RENEWAL_MULTIPLIERS,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
