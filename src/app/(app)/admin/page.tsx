@@ -21,7 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Shield, Save, RefreshCw, Users, Percent } from 'lucide-react';
+import { Shield, Save, RefreshCw, Users, Percent, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import {
@@ -209,6 +209,19 @@ function AdminContent() {
     } else {
       updated[index] = { ...updated[index], [field]: value };
     }
+    setGoalLevels(updated);
+  };
+
+  const insertGoalLevel = (afterIndex: number) => {
+    const newLevel: GoalAchievementConfig = {
+      level: `nivel_${Date.now()}`,
+      minPercentage: 0,
+      maxPercentage: 0,
+      label: '',
+      bonusPercentages: { G0: 0, G1: 0, G2: 0, G3: 0, G4: 0 },
+    };
+    const updated = [...goalLevels];
+    updated.splice(afterIndex + 1, 0, newLevel);
     setGoalLevels(updated);
   };
 
@@ -573,13 +586,19 @@ function AdminContent() {
                           {CATEGORIES.map((cat) => (
                             <TableHead key={cat.value}>{cat.label} (%)</TableHead>
                           ))}
+                          <TableHead className="w-10" />
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {goalLevels.map((level, index) => (
                           <TableRow key={level.level}>
                             <TableCell>
-                              <Badge variant="outline">{level.label}</Badge>
+                              <Input
+                                value={level.label}
+                                onChange={e => updateGoalLevel(index, 'label', e.target.value)}
+                                placeholder="Sin nombre"
+                                className="w-32"
+                              />
                             </TableCell>
                             <TableCell>
                               <Input
@@ -619,6 +638,17 @@ function AdminContent() {
                                 />
                               </TableCell>
                             ))}
+                            <TableCell>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                title="Insertar nivel después de esta fila"
+                                onClick={() => insertGoalLevel(index)}
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
