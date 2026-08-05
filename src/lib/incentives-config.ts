@@ -81,6 +81,19 @@ export const GOAL_ACHIEVEMENT_LEVELS: GoalAchievementConfig[] = [
     },
   },
   {
+    level: 'nuevo_nivel',
+    minPercentage: 0,
+    maxPercentage: 0,
+    label: '',
+    bonusPercentages: {
+      G0: 0,
+      G1: 0,
+      G2: 0,
+      G3: 0,
+      G4: 0,
+    },
+  },
+  {
     level: 'elite',
     minPercentage: 160,
     maxPercentage: null,

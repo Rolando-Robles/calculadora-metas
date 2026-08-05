@@ -45,7 +45,7 @@ export interface MonthlyCommission {
 
 // ===== Originadores de Excelencia Types =====
 
-export type GoalAchievementLevel = 'fuera_de_juego' | 'en_juego' | 'cumplido' | 'dominado' | 'sobresaliente' | 'elite';
+export type GoalAchievementLevel = string;
 
 export type UserCategory = 'G0' | 'G1' | 'G2' | 'G3' | 'G4';
 
