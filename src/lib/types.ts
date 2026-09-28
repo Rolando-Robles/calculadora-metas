@@ -143,3 +143,38 @@ export interface SalesProjection {
   qualityMultiplier: QualityMultiplier;
   growthMultiplier: GrowthMultiplier;
 }
+
+// ===== Administración de vendedores =====
+
+export type UserRole = 'admin' | 'vendedor';
+
+/**
+ * Perfil del vendedor. El documento vive en `users/{correo en minúsculas}`;
+ * `uid` se llena la primera vez que la persona inicia sesión con Google.
+ */
+export interface VendorProfile {
+  email: string;
+  role: UserRole;
+  uid?: string;
+  name?: string;
+  category?: UserCategory;
+  product?: ProductType;
+  region?: string;
+  manager?: string;
+  status?: 'activo' | 'baja';
+  createdAt?: string;
+  updatedAt?: string;
+  lastLoginAt?: string;
+}
+
+export interface UserGoalDoc extends UserGoalConfig {
+  id: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export interface PeriodLock {
+  locked: boolean;
+  lockedAt?: string;
+  lockedBy?: string;
+}
