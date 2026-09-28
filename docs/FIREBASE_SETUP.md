@@ -55,8 +55,11 @@ Al iniciar sesión, la app liga ese documento con su cuenta (guarda `uid` y `las
 Las reglas vigentes están en [`firestore.rules`](../firestore.rules). Publícalas con:
 
 ```bash
-firebase deploy --only firestore:rules
+firebase login
+firebase deploy --only firestore:rules --project <id-de-tu-proyecto>
 ```
+
+(`firebase.json` en la raíz del repo ya apunta a `firestore.rules`. El ID del proyecto es el valor de `NEXT_PUBLIC_FIREBASE_PROJECT_ID`.)
 
 o copia el contenido del archivo en la pestaña **Rules** de Firestore. Resumen de lo que garantizan:
 
