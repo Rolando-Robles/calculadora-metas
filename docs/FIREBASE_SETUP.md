@@ -22,21 +22,15 @@ Este documento describe cómo configurar Firebase para el sistema de "Originador
 
 1. Inicia sesión con tu cuenta de Google (se creará automáticamente como vendedor)
 2. Ve a Firestore Database en Firebase Console
-3. Encuentra el documento del usuario en la colección `users`
+3. Encuentra el documento del usuario en la colección `users` (su ID es el correo en minúsculas)
 4. Edita el documento y cambia el campo `role` de `"vendedor"` a `"admin"`
 5. Refresca la aplicación
 
-### Asignar Rol de Admin Manualmente
+> El rol solo se puede cambiar desde la consola o por otro admin: las reglas impiden que un usuario modifique su propio `role`, `category` o `product`.
 
-**Opción 1: Desde Firebase Console**
-1. Ve a Firestore Database
-2. Colección `users` → encuentra tu UID
-3. Edita el campo `role` → `"admin"`
+### Crear un admin antes de que inicie sesión
 
-**Opción 2: Crear documento manualmente**
-Si quieres crear un usuario admin antes de que inicie sesión:
-
-**Documento ID**: `[Email de la cuenta Google]`
+**Colección**: `users` · **Documento ID**: el correo de la cuenta Google en minúsculas (ej. `admin@ejemplo.com`)
 ```json
 {
   "name": "Admin Aviva",
@@ -46,7 +40,7 @@ Si quieres crear un usuario admin antes de que inicie sesión:
 }
 ```
 
-**Nota**: El UID debe coincidir con el que Firebase Auth asignará a esa cuenta de Google cuando inicie sesión.
+Al iniciar sesión, la app liga ese documento con su cuenta (guarda `uid` y `lastLoginAt`).
 
 ## 4. Configurar Firestore Database
 
@@ -58,50 +52,27 @@ Si quieres crear un usuario admin antes de que inicie sesión:
 
 ## 5. Configurar Reglas de Seguridad
 
-En la pestaña "Rules", reemplaza las reglas con:
+Las reglas vigentes están en [`firestore.rules`](../firestore.rules). Publícalas con:
 
-```javascript
-rules_version = '2';
-
-service cloud.firestore {
-  match /databases/{database}/documents {
-    // Helper function to check if user is admin
-    function isAdmin() {
-      return request.auth != null &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-
-    // Users collection
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      // Allow users to create their own profile on first login
-      allow create: if request.auth != null && request.auth.uid == userId;
-      // Only admins can update roles
-      allow update, delete: if isAdmin();
-    }
-
-    // Config collection - only admins can write
-    match /config/{document} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-
-    // User goals - admins can write, users can read their own
-    match /userGoals/{goalId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-  }
-}
+```bash
+firebase deploy --only firestore:rules
 ```
+
+o copia el contenido del archivo en la pestaña **Rules** de Firestore. Resumen de lo que garantizan:
+
+- **`users/{correo}`**: cada persona lee solo su perfil. En su primer inicio de sesión puede crearlo únicamente como `vendedor`, sin categoría ni producto; después solo puede actualizar `name`, `uid` y `lastLoginAt`. Los admins leen y escriben todo.
+- **`userGoals`**: cada vendedor lee solo sus metas (`userEmail` = su correo). Solo los admins escriben, y nunca en un periodo cerrado.
+- **`periods/{YYYY-MM}`**: cierre de periodo (`locked: true`); solo admins.
+- **`imports`**: historial de importaciones con los valores previos para revertir; solo admins.
+- **`config`**: esquema de incentivos; lo lee cualquier usuario autenticado y solo lo escriben admins.
 
 ## 6. Crear Documentos Iniciales en Firestore
 
 ### Colección: `users`
 
-Crea dos documentos con los UIDs de los usuarios creados:
+Crea los documentos usando el correo en minúsculas como ID (los vendedores normalmente se cargan desde **Admin → Importar**):
 
-**Documento ID**: `[UID del admin]`
+**Documento ID**: `admin@aviva.com`
 ```json
 {
   "name": "Admin Aviva",
@@ -111,13 +82,14 @@ Crea dos documentos con los UIDs de los usuarios creados:
 }
 ```
 
-**Documento ID**: `[UID del vendedor]`
+**Documento ID**: `vendedor@avivacredito.com`
 ```json
 {
   "name": "Vendedor Demo",
-  "email": "vendedor@aviva.com",
+  "email": "vendedor@avivacredito.com",
   "role": "vendedor",
   "category": "G4",
+  "product": "aviva_contigo",
   "createdAt": "2024-01-01T00:00:00.000Z"
 }
 ```
@@ -156,9 +128,9 @@ Una vez que hayas configurado todo:
 
 1. Inicia sesión con tu cuenta de Google
 2. Si necesitas ser admin, edita tu rol en Firestore (ver paso 3)
-3. Ve al panel de Admin
+3. Ve a **Admin → Esquema de incentivos**
 4. Los valores por defecto se cargarán automáticamente
-5. Haz click en "Guardar Cambios" para persistirlos en Firestore
+5. Haz click en "Guardar esquema" (o "Restaurar valores por defecto") para persistirlos en Firestore
 
 ## 10. Probar el Sistema
 
@@ -181,8 +153,13 @@ Una vez que hayas configurado todo:
 
 1. **Como Admin**: Acceso completo + panel de administración
 2. **Como Vendedor**: Acceso a calculadora y proyecciones
-3. **Editar Valores** (Admin): Todos los porcentajes y multiplicadores son editables
-4. **Guardar**: Los cambios se guardan en Firestore y se aplican inmediatamente
+3. **Metas** (Admin): tabla por periodo con búsqueda, filtros, acciones masivas y guardado en lote. "Cerrar periodo" deja las metas de un mes en solo lectura.
+4. **Importar** (Admin): CSV o Excel con vista previa antes de aplicar; cada carga queda en el historial y se puede revertir.
+5. **Esquema de incentivos** (Admin): porcentajes y multiplicadores; se aplican de inmediato a todos.
+
+### Migrar datos de versiones anteriores
+
+Antes, la importación CSV creaba un perfil con un ID distinto al del login, así que un vendedor podía tener 2-3 documentos en `users`. Si el panel muestra el aviso "perfiles duplicados o con formato anterior", pulsa **Consolidar ahora**: deja un solo `users/{correo}` por vendedor y re-asocia sus metas. Se puede ejecutar varias veces sin problema.
 
 ## Estructura de Datos en Firestore
 

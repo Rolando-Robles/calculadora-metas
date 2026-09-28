@@ -2,45 +2,99 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if user is admin
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Correo verificado del token en minúsculas. Los perfiles viven en users/{correo}.
+    function myEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function hasVerifiedEmail() {
+      return signedIn() && request.auth.token.email_verified == true;
+    }
+
+    function userDoc(id) {
+      return /databases/$(database)/documents/users/$(id);
+    }
+
+    // Admin por su perfil actual (users/{correo}) o por el perfil de formato
+    // anterior (users/{uid}) mientras no se consolide.
     function isAdmin() {
-      return request.auth != null &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return signedIn() && (
+        (hasVerifiedEmail() && exists(userDoc(myEmail())) && get(userDoc(myEmail())).data.role == 'admin') ||
+        (exists(userDoc(request.auth.uid)) && get(userDoc(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function periodLocked(period) {
+      return exists(/databases/$(database)/documents/periods/$(period)) &&
+             get(/databases/$(database)/documents/periods/$(period)).data.locked == true;
     }
 
     // Users collection
     match /users/{userId} {
-      // Users can read their own profile
-      allow read: if request.auth != null && request.auth.uid == userId;
+      function isOwnDoc() {
+        return userId == request.auth.uid || (hasVerifiedEmail() && userId == myEmail());
+      }
 
-      // Users can update their own profile (limited fields)
-      allow update: if request.auth != null && request.auth.uid == userId;
+      // Perfil propio: actual (por correo), del uid, o el alias del CSV anterior con su correo.
+      allow get: if signedIn() && (
+        isOwnDoc() ||
+        (hasVerifiedEmail() && resource.data.get('email', '').lower() == myEmail())
+      );
 
-      // Admins can read all users
-      allow read: if isAdmin();
+      // Primer inicio de sesión: solo un perfil de vendedor con su propio correo y uid.
+      // Categoría, producto y rol solo los asigna un admin.
+      allow create: if hasVerifiedEmail() &&
+        userId == myEmail() &&
+        myEmail().matches('.*@avivacredito[.]com$') &&
+        request.resource.data.email == myEmail() &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.role == 'vendedor' &&
+        request.resource.data.keys().hasOnly(['email', 'uid', 'name', 'role', 'status', 'createdAt', 'updatedAt', 'lastLoginAt']);
 
-      // Admins can create/update any user
-      allow create, update: if isAdmin();
+      // El propio usuario solo puede actualizar datos de sesión; nunca su rol, categoría o producto.
+      allow update: if signedIn() && isOwnDoc() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['uid', 'name', 'lastLoginAt', 'updatedAt']) &&
+        request.resource.data.get('uid', request.auth.uid) == request.auth.uid;
+
+      // Admins can read and manage all users
+      allow read, write: if isAdmin();
     }
 
-    // User Goals collection - ACTUALIZADO PARA USAR EMAIL
+    // User Goals collection
     match /userGoals/{goalId} {
-      // Users can read their own goals by email (new format) OR userId (legacy format)
-      allow read: if request.auth != null &&
-                     (resource.data.userEmail == request.auth.token.email ||
-                      resource.data.userId == request.auth.uid);
+      // Users can read their own goals (userEmail en minúsculas)
+      allow read: if hasVerifiedEmail() && resource.data.userEmail == myEmail();
 
-      // Admins can read/write all goals
+      allow read: if isAdmin();
+
+      // Admins can write goals of periods that are not closed
+      allow create, update: if isAdmin() && !periodLocked(request.resource.data.period);
+      allow delete: if isAdmin() && !periodLocked(resource.data.period);
+    }
+
+    // Cierre de periodos (YYYY-MM)
+    match /periods/{period} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
+
+    // Historial de importaciones (con el "antes" para poder revertir)
+    match /imports/{importId} {
       allow read, write: if isAdmin();
 
-      // Admins can create/update goals
-      allow create, update: if isAdmin();
+      match /chunks/{chunkId} {
+        allow read, write: if isAdmin();
+      }
     }
 
     // Config collection (incentives config)
     match /config/{docId} {
       // Anyone authenticated can read
-      allow read: if request.auth != null;
+      allow read: if signedIn();
 
       // Only admins can write
       allow write: if isAdmin();

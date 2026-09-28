@@ -37,7 +37,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <ProtectedRoute>
       <SidebarProvider>
-        <div className="flex min-h-screen bg-background">
+        <div className="flex min-h-screen w-full min-w-0 bg-background">
           <Sidebar className="hidden md:flex md:flex-col">
             <SidebarHeader className="border-b p-4">
               <div className="flex items-center gap-3">
@@ -129,7 +129,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </SidebarFooter>
           </Sidebar>
 
-          <main className="flex-1 md:pb-0">
+          <main className="min-w-0 flex-1 md:pb-0">
             {children}
           </main>
         </div>
