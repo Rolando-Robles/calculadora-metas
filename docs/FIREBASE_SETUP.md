@@ -1,216 +1,99 @@
 # Configuración de Firebase
 
-Este documento describe cómo configurar Firebase para el sistema de "Originadores de Excelencia".
+Cómo dejar listo un proyecto de Firebase para esta app, ya sea uno nuevo para desarrollo o pruebas, o para revisar el de producción (`studio-8143131557-91b6c`).
 
-## 1. Crear Proyecto Firebase
+El modelo de datos completo está en [CARGA_DE_METAS.md](CARGA_DE_METAS.md#modelo-de-datos-en-firestore).
 
-1. Ve a [Firebase Console](https://console.firebase.google.com/)
-2. Crea un nuevo proyecto llamado "aviva-originadores"
-3. Habilita Google Analytics (opcional)
+## 1. Crear el proyecto
 
-## 2. Configurar Authentication
+1. Entra a [Firebase Console](https://console.firebase.google.com/) y crea un proyecto.
+2. En **Project settings → General → Your apps**, registra una app **Web** (`</>`) y copia su configuración.
 
-1. En el menú lateral, ve a **Build > Authentication**
-2. Click en "Get started"
-3. Habilita el proveedor **Google**
-4. Configura el email de soporte del proyecto
-5. Click en "Save"
+## 2. Authentication
 
-## 3. Configurar Primer Usuario Admin
+1. **Build → Authentication → Get started**.
+2. En **Sign-in method**, habilita **Google** y define el correo de soporte.
+3. En **Settings → Authorized domains**, confirma que estén `localhost` y el dominio donde se publique la app.
 
-**IMPORTANTE**: El primer usuario que inicie sesión con Google será creado como "vendedor" por defecto. Para configurar un administrador:
+La app solo deja entrar a correos `@avivacredito.com`, salvo cuentas cuyo perfil ya tenga `role: "admin"`. Ver `src/contexts/AuthContext.tsx`.
 
-1. Inicia sesión con tu cuenta de Google (se creará automáticamente como vendedor)
-2. Ve a Firestore Database en Firebase Console
-3. Encuentra el documento del usuario en la colección `users` (su ID es el correo en minúsculas)
-4. Edita el documento y cambia el campo `role` de `"vendedor"` a `"admin"`
-5. Refresca la aplicación
+## 3. Firestore
 
-> El rol solo se puede cambiar desde la consola o por otro admin: las reglas impiden que un usuario modifique su propio `role`, `category` o `product`.
+1. **Build → Firestore Database → Create database**.
+2. Elige **production mode** y una región cercana a México (p. ej. `us-central1`).
 
-### Crear un admin antes de que inicie sesión
+No se necesitan índices compuestos: todas las consultas filtran u ordenan por un solo campo.
 
-**Colección**: `users` · **Documento ID**: el correo de la cuenta Google en minúsculas (ej. `admin@ejemplo.com`)
-```json
-{
-  "name": "Admin Aviva",
-  "email": "admin@ejemplo.com",
-  "role": "admin",
-  "createdAt": "2024-01-01T00:00:00.000Z"
-}
-```
+## 4. Variables de entorno
 
-Al iniciar sesión, la app liga ese documento con su cuenta (guarda `uid` y `lastLoginAt`).
-
-## 4. Configurar Firestore Database
-
-1. Ve a **Build > Firestore Database**
-2. Click en "Create database"
-3. Selecciona **Start in production mode**
-4. Elige la ubicación más cercana (us-central1 para México)
-5. Click en "Enable"
-
-## 5. Configurar Reglas de Seguridad
-
-Las reglas vigentes están en [`firestore.rules`](../firestore.rules). Publícalas con:
+Copia la plantilla y llena los valores del paso 1:
 
 ```bash
-firebase deploy --only firestore:rules
+cp .env.example .env.local
 ```
-
-o copia el contenido del archivo en la pestaña **Rules** de Firestore. Resumen de lo que garantizan:
-
-- **`users/{correo}`**: cada persona lee solo su perfil. En su primer inicio de sesión puede crearlo únicamente como `vendedor`, sin categoría ni producto; después solo puede actualizar `name`, `uid` y `lastLoginAt`. Los admins leen y escriben todo.
-- **`userGoals`**: cada vendedor lee solo sus metas (`userEmail` = su correo). Solo los admins escriben, y nunca en un periodo cerrado.
-- **`periods/{YYYY-MM}`**: cierre de periodo (`locked: true`); solo admins.
-- **`imports`**: historial de importaciones con los valores previos para revertir; solo admins.
-- **`config`**: esquema de incentivos; lo lee cualquier usuario autenticado y solo lo escriben admins.
-
-## 6. Crear Documentos Iniciales en Firestore
-
-### Colección: `users`
-
-Crea los documentos usando el correo en minúsculas como ID (los vendedores normalmente se cargan desde **Admin → Importar**):
-
-**Documento ID**: `admin@aviva.com`
-```json
-{
-  "name": "Admin Aviva",
-  "email": "admin@aviva.com",
-  "role": "admin",
-  "createdAt": "2024-01-01T00:00:00.000Z"
-}
-```
-
-**Documento ID**: `vendedor@avivacredito.com`
-```json
-{
-  "name": "Vendedor Demo",
-  "email": "vendedor@avivacredito.com",
-  "role": "vendedor",
-  "category": "G4",
-  "product": "aviva_contigo",
-  "createdAt": "2024-01-01T00:00:00.000Z"
-}
-```
-
-### Colección: `config`
-
-**Documento ID**: `incentives`
-
-Puedes dejarlo vacío por ahora. Los valores por defecto se cargarán automáticamente desde el código.
-
-## 7. Obtener Credenciales del Proyecto
-
-1. Ve a **Project Settings** (ícono de engranaje)
-2. En la sección "Your apps", click en el ícono de Web `</>`
-3. Registra una app con el nombre "Aviva Web"
-4. Copia la configuración de Firebase
-
-## 8. Configurar Variables de Entorno
-
-1. Crea un archivo `.env.local` en la raíz del proyecto
-2. Copia el contenido de `.env.local.example`
-3. Reemplaza con tus valores:
 
 ```env
-NEXT_PUBLIC_FIREBASE_API_KEY=tu-api-key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=tu-proyecto.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=tu-proyecto-id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=tu-proyecto.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=tu-sender-id
-NEXT_PUBLIC_FIREBASE_APP_ID=tu-app-id
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=<proyecto>.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=<proyecto>
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=<proyecto>.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+NEXT_PUBLIC_FIREBASE_APP_ID=...
 ```
 
-## 9. Inicializar Configuración por Defecto
+Estos valores son públicos (viajan al navegador). En producción se definen en [`apphosting.yaml`](../apphosting.yaml).
 
-Una vez que hayas configurado todo:
+## 5. Reglas de seguridad
 
-1. Inicia sesión con tu cuenta de Google
-2. Si necesitas ser admin, edita tu rol en Firestore (ver paso 3)
-3. Ve a **Admin → Esquema de incentivos**
-4. Los valores por defecto se cargarán automáticamente
-5. Haz click en "Guardar esquema" (o "Restaurar valores por defecto") para persistirlos en Firestore
+Las reglas vigentes están en [`firestore.rules`](../firestore.rules) y **hay que publicarlas a mano** cada vez que cambien. App Hosting no las despliega.
 
-## 10. Probar el Sistema
+- **Desde la consola:** Firestore → **Rules** → pega el contenido del archivo → **Publish**.
+- **Desde la CLI:** el repo no incluye `firebase.json`. Para usar `firebase deploy --only firestore:rules`, crea uno con `{ "firestore": { "rules": "firestore.rules" } }` y selecciona el proyecto con `firebase use <proyecto>`.
 
-### Login con Google
+Resumen de lo que garantizan:
 
-1. Abre la aplicación en `http://localhost:3000/login`
-2. Click en "Continuar con Google"
-3. Selecciona tu cuenta de Google
-4. La primera vez se creará automáticamente tu perfil como vendedor
+- **`users/{correo}`**: cada persona lee solo su perfil. En su primer inicio de sesión puede crearlo únicamente como `vendedor`, sin categoría ni producto. Después solo puede actualizar `name`, `uid`, `lastLoginAt` y `updatedAt`. Los admins leen y escriben todo.
+- **`userGoals`**: cada vendedor lee solo las metas con su correo. Solo los admins escriben, y nunca en un periodo cerrado.
+- **`periods/{YYYY-MM}`**: cierre de periodo. Lo lee cualquier usuario autenticado y solo lo escriben admins.
+- **`imports`**: historial de importaciones con los valores previos para revertir. Solo admins.
+- **`config`**: esquema de incentivos. Lo lee cualquier usuario autenticado y solo lo escriben admins.
 
-### Cambiar a Admin
+## 6. Primer administrador
 
-1. Ve a Firebase Console → Firestore Database
-2. Encuentra tu usuario en la colección `users`
-3. Edita el campo `role` de `"vendedor"` a `"admin"`
-4. Refresca la aplicación
-5. Ahora verás la opción "Admin" en el menú
+Nadie es admin al principio. Hay dos formas de crear el primero:
 
-### Usar el Sistema
+**A. Crear el perfil antes de que la persona entre.** En Firestore crea el documento `users/{correo en minúsculas}`:
 
-1. **Como Admin**: Acceso completo + panel de administración
-2. **Como Vendedor**: Acceso a calculadora y proyecciones
-3. **Metas** (Admin): tabla por periodo con búsqueda, filtros, acciones masivas y guardado en lote. "Cerrar periodo" deja las metas de un mes en solo lectura.
-4. **Importar** (Admin): CSV o Excel con vista previa antes de aplicar; cada carga queda en el historial y se puede revertir.
-5. **Esquema de incentivos** (Admin): porcentajes y multiplicadores; se aplican de inmediato a todos.
-
-### Migrar datos de versiones anteriores
-
-Antes, la importación CSV creaba un perfil con un ID distinto al del login, así que un vendedor podía tener 2-3 documentos en `users`. Si el panel muestra el aviso "perfiles duplicados o con formato anterior", pulsa **Consolidar ahora**: deja un solo `users/{correo}` por vendedor y re-asocia sus metas. Se puede ejecutar varias veces sin problema.
-
-## Estructura de Datos en Firestore
-
-### Colección: `users`
-```
-users/
-  {userId}/
-    - name: string
-    - email: string
-    - role: "admin" | "vendedor"
-    - category?: "G1" | "G2" | "G3" | "G4"
-    - createdAt: timestamp
+```json
+{
+  "email": "persona@avivacredito.com",
+  "name": "Nombre Apellido",
+  "role": "admin",
+  "status": "activo",
+  "createdAt": "2026-01-01T00:00:00.000Z"
+}
 ```
 
-### Colección: `config`
-```
-config/
-  incentives/
-    - goalAchievementLevels: array
-    - qualityMultipliers: array
-    - growthMultipliers: array
-    - updatedAt: timestamp
-```
+Cuando inicie sesión, la app liga el documento a su cuenta (guarda `uid` y `lastLoginAt`). Con este método también puede entrar un admin con correo de otro dominio.
 
-### Colección: `userGoals`
-```
-userGoals/
-  {userId}-{period}/
-    - userId: string
-    - monthlyGoal: number
-    - category: "G1" | "G2" | "G3" | "G4"
-    - period: string (YYYY-MM)
-    - updatedAt: timestamp
-```
+**B. Promover a alguien que ya entró.** La persona inicia sesión una vez, lo que crea `users/{su-correo}` como `vendedor`. Luego, en la consola, cambia su campo `role` a `"admin"` y pídele que recargue la página.
+
+El rol solo se puede cambiar desde la consola o por otro admin. Las reglas impiden que un usuario modifique su propio `role`, `category` o `product`.
+
+## 7. Esquema de incentivos
+
+No hace falta crear `config/incentives` a mano. Mientras no exista, la app usa los valores por defecto de `src/lib/incentives-config.ts`. Para guardarlos en Firestore y poder editarlos, entra a **Admin → Esquema de incentivos** y pulsa **Guardar** (o **Restaurar valores por defecto**).
+
+## 8. Cargar vendedores y metas
+
+Ve a **Admin → Importar**, descarga la plantilla, llénala y súbela. También puedes capturar metas directamente en **Admin → Metas**. El detalle está en [CARGA_DE_METAS.md](CARGA_DE_METAS.md).
 
 ## Troubleshooting
 
-### Error: "Missing or insufficient permissions"
-- Verifica que las reglas de Firestore estén configuradas correctamente
-- Asegúrate de que el usuario tenga el rol correcto en Firestore
-
-### Error: "Firebase: Error (auth/popup-closed-by-user)"
-- El usuario cerró el popup de Google antes de completar el login
-- Intenta de nuevo
-
-### Error: "Firebase: Error (auth/unauthorized-domain)"
-- Agrega tu dominio a la lista de dominios autorizados
-- Ve a Authentication → Settings → Authorized domains
-- Agrega `localhost` para desarrollo
-
-### Configuración no se guarda
-- Verifica la conexión a Firestore
-- Revisa la consola del navegador para errores
-- Asegúrate de estar logueado como admin
+| Error | Causa probable |
+|---|---|
+| `Missing or insufficient permissions` | Las reglas publicadas no son las de `firestore.rules`, el usuario no tiene `role: "admin"` o el periodo está cerrado. |
+| `auth/unauthorized-domain` | Falta el dominio en Authentication → Settings → Authorized domains. |
+| `auth/popup-closed-by-user` | La persona cerró la ventana de Google. Que lo intente de nuevo. |
+| "Acceso denegado. Solo se permite el acceso a usuarios con correo @avivacredito.com" | Cuenta de otro dominio sin perfil admin. Usa la opción A del paso 6. |
+| En el admin aparece "perfiles duplicados o con formato anterior" | Hay datos de la versión anterior. Pulsa **Consolidar ahora**. Ver [CARGA_DE_METAS.md](CARGA_DE_METAS.md#datos-de-formato-anterior-código-de-transición). |

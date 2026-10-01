@@ -1,156 +1,49 @@
-# 🚀 Guía de Deployment - Firebase App Hosting
+# Deployment: Firebase App Hosting
 
-Esta guía te ayudará a desplegar tu aplicación Next.js en Firebase App Hosting.
+Producción corre en **Firebase App Hosting** en el proyecto `studio-8143131557-91b6c`. El backend está conectado a este repositorio de GitHub y **cada push a la rama *live* del backend** (normalmente `main`) dispara un build y un rollout automáticos.
 
-## ¿Por qué Firebase App Hosting?
+## Qué se despliega y qué no
 
-Firebase App Hosting es la forma moderna de desplegar aplicaciones Next.js en Firebase. A diferencia de Firebase Hosting tradicional:
+| Pieza | ¿Cómo llega a producción? |
+|---|---|
+| Código de la app (Next.js) | Automático con App Hosting al hacer push o merge a la rama *live*. |
+| Variables `NEXT_PUBLIC_FIREBASE_*` | Desde [`apphosting.yaml`](../apphosting.yaml), en el mismo build. |
+| Recursos del servidor (`runConfig`) | Desde `apphosting.yaml`. Hoy: 1 instancia máx., 0 mín., 1 CPU, 512 MiB. |
+| **Reglas de Firestore** (`firestore.rules`) | **A mano.** Ver [FIREBASE_SETUP.md § 5](FIREBASE_SETUP.md#5-reglas-de-seguridad). |
+| Esquema de incentivos, vendedores y metas | Son datos. Se editan desde `/admin`, no se despliegan. |
 
-✅ **Soporta todas las características de Next.js**: SSR, API Routes, ISR, etc.
-✅ **Deploy automático desde GitHub**: Cada push dispara un nuevo deployment
-✅ **Sin configuración manual**: No necesitas compilar ni subir archivos
-✅ **Escalado automático**: Se ajusta según el tráfico
-✅ **Preview deployments**: Cada PR crea una preview URL automáticamente
+> Si un cambio de código depende de una regla nueva, por ejemplo una colección nueva, publica las reglas **antes** de hacer merge. De lo contrario, producción mostrará `Missing or insufficient permissions` hasta que se publiquen.
 
-## 📋 Prerrequisitos
+## Revisar un deploy
 
-Antes de comenzar, asegúrate de tener:
+Firebase Console → **Build → App Hosting** → selecciona el backend:
 
-1. ✅ Un proyecto de Firebase creado (si no tienes uno, créalo en [Firebase Console](https://console.firebase.google.com/))
-2. ✅ Tu código en un repositorio de GitHub
-3. ✅ Permisos de administrador en tu proyecto Firebase
-4. ✅ Permisos de administrador en tu repositorio GitHub
+- **Rollouts**: historial de despliegues, estado y logs de build. Desde aquí se puede volver a una versión anterior.
+- **Logs** y **Metrics**: logs de ejecución, errores y latencia.
+- La URL pública del backend tiene la forma `https://<backend>--<proyecto>.<región>.hosted.app`, salvo que tenga dominio personalizado.
 
-## 🔧 Pasos para Desplegar
+## Crear un backend nuevo (p. ej. un entorno de pruebas)
 
-### Paso 1: Preparar las Variables de Entorno
+1. El proyecto de Firebase debe estar en el plan **Blaze**. App Hosting no está disponible en Spark.
+2. Configura Authentication y Firestore como indica [FIREBASE_SETUP.md](FIREBASE_SETUP.md).
+3. **Build → App Hosting → Create backend**. Conecta GitHub, elige `RolandoRobles12/calculadora-incentivos`, la rama *live* y la raíz del repo (`/`).
+4. Si es otro proyecto de Firebase, cambia los valores `NEXT_PUBLIC_FIREBASE_*` de `apphosting.yaml` para ese backend (o defínelos en la consola del backend) y agrega su dominio `*.hosted.app` en **Authentication → Settings → Authorized domains**.
+5. Publica `firestore.rules` en ese proyecto.
 
-Necesitarás los valores de configuración de Firebase. Para obtenerlos:
+## Notas del build
 
-1. Ve a [Firebase Console](https://console.firebase.google.com/)
-2. Selecciona tu proyecto
-3. Ve a **Project Settings** (⚙️ ícono de engranaje)
-4. En la sección **General**, baja hasta **Your apps**
-5. Si no tienes una app web, haz clic en **Add app** > **Web** (ícono `</>`)
-6. Copia los valores de configuración
+- `next.config.ts` usa `output: 'standalone'` y tiene `typescript.ignoreBuildErrors: true` y `eslint.ignoreDuringBuilds: true`. Es decir, **el build no se detiene por errores de tipos**. Corre `npm run typecheck` antes de hacer merge. Cuando ya no queden errores de tipos, conviene quitar `ignoreBuildErrors`.
+- `maxInstances: 1` alcanza porque casi todo el trabajo ocurre en el navegador contra Firestore. Súbelo en `apphosting.yaml` si ves latencia por concurrencia.
 
-Guarda estos valores, los necesitarás en el Paso 3.
+## Troubleshooting
 
-### Paso 2: Conectar tu Repositorio de GitHub a Firebase
+| Síntoma | Qué revisar |
+|---|---|
+| El rollout falla | Logs del build en *Rollouts*. Reproduce local con `npm ci && npm run build`. |
+| Página en blanco o error al iniciar sesión | Variables `NEXT_PUBLIC_FIREBASE_*` del backend y dominio autorizado en Authentication. |
+| `Missing or insufficient permissions` tras un deploy | Las reglas publicadas no coinciden con `firestore.rules` del commit desplegado. |
 
-1. Ve a [Firebase Console](https://console.firebase.google.com/)
-2. Selecciona tu proyecto
-3. En el menú lateral, busca **Build** y haz clic en **App Hosting**
-4. Haz clic en **Get Started** (o **Create backend** si ya tienes otros backends)
-5. Conecta tu cuenta de GitHub si aún no está conectada
-6. Selecciona el repositorio: **RolandoRobles12/calculadora-incentivos**
-7. Selecciona la rama principal (generalmente `main` o `master`)
-8. Firebase detectará automáticamente que es una aplicación Next.js
-9. Haz clic en **Next**
+## Referencias
 
-### Paso 3: Configurar Variables de Entorno
-
-En la siguiente pantalla, configura las variables de entorno:
-
-```
-NEXT_PUBLIC_FIREBASE_API_KEY=tu-api-key-aqui
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=tu-project-id.firebaseapp.com
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=tu-project-id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=tu-project-id.appspot.com
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=tu-sender-id
-NEXT_PUBLIC_FIREBASE_APP_ID=tu-app-id
-```
-
-**⚠️ IMPORTANTE**: Usa los valores reales que obtuviste en el Paso 1, no los valores de ejemplo.
-
-### Paso 4: Revisar Configuración y Desplegar
-
-1. Revisa la configuración:
-   - **Framework**: Next.js (detectado automáticamente)
-   - **Build command**: `npm run build` (por defecto)
-   - **Output directory**: `.next` (por defecto)
-   - **Install command**: `npm install` (por defecto)
-
-2. Haz clic en **Deploy**
-
-3. Firebase comenzará a construir y desplegar tu aplicación. Este proceso puede tomar 5-10 minutos.
-
-### Paso 5: Verificar el Deployment
-
-1. Una vez completado, verás un mensaje de éxito
-2. Firebase te mostrará la URL de tu aplicación (algo como `https://tu-proyecto-id.web.app`)
-3. Haz clic en la URL para abrir tu aplicación
-4. Deberías ver tu aplicación funcionando, **no la página de bienvenida de Firebase**
-
-## 🔄 Deployments Automáticos
-
-Después de la configuración inicial:
-
-- **Cada push a tu rama principal** disparará un nuevo deployment automáticamente
-- **Cada Pull Request** creará una preview URL para que puedas revisar los cambios antes de mergear
-- Los deployments anteriores se mantienen, puedes hacer rollback si es necesario
-
-## 🛠️ Actualizar Variables de Entorno
-
-Si necesitas actualizar las variables de entorno después del deployment:
-
-1. Ve a Firebase Console > App Hosting
-2. Selecciona tu backend
-3. Ve a la pestaña **Environment variables**
-4. Edita las variables según necesites
-5. Haz clic en **Rollout** para aplicar los cambios
-
-## 📊 Monitoreo y Logs
-
-Para ver logs y métricas:
-
-1. Ve a Firebase Console > App Hosting
-2. Selecciona tu backend
-3. **Metrics**: Muestra tráfico, errores, latencia
-4. **Logs**: Muestra logs de tu aplicación en tiempo real
-
-## 🐛 Troubleshooting
-
-### La aplicación no se despliega
-
-- Verifica que el repositorio de GitHub esté conectado correctamente
-- Revisa los logs de build en Firebase Console > App Hosting > tu backend > Build logs
-- Asegúrate de que `package.json` tenga el script `build`
-
-### Error 500 o página en blanco
-
-- Verifica que todas las variables de entorno estén configuradas correctamente
-- Revisa los logs de runtime en Firebase Console
-- Asegúrate de que las credenciales de Firebase sean correctas
-
-### La aplicación muestra la página de bienvenida de Firebase
-
-- Esto significa que estás accediendo a una URL de Firebase Hosting tradicional, no App Hosting
-- Asegúrate de usar la URL correcta que te proporcionó App Hosting (termina en `.web.app` o dominio personalizado)
-- Si acabas de desplegar, espera 5-10 minutos para que se propague
-
-## 🔐 Configuración de Autenticación
-
-Si usas Firebase Authentication:
-
-1. Ve a Firebase Console > Authentication
-2. Haz clic en **Sign-in method**
-3. Habilita los métodos que necesites (Email/Password, Google, etc.)
-4. En **Authorized domains**, agrega tu dominio de App Hosting si no está
-
-## 📚 Recursos Adicionales
-
-- [Documentación oficial de Firebase App Hosting](https://firebase.google.com/docs/app-hosting)
-- [Next.js en Firebase](https://firebase.google.com/docs/app-hosting/frameworks/nextjs)
-- [Configuración de apphosting.yaml](https://firebase.google.com/docs/app-hosting/configure)
-
-## 💡 Tips
-
-- Los cambios en `apphosting.yaml` se aplican automáticamente en el próximo deployment
-- Puedes configurar múltiples backends (staging, production) en el mismo proyecto
-- El plan Spark (gratuito) incluye App Hosting con límites generosos
-- Para producción, considera el plan Blaze con facturación por uso
-
----
-
-¿Problemas? Revisa los logs en Firebase Console o abre un issue en el repositorio.
+- [Firebase App Hosting](https://firebase.google.com/docs/app-hosting)
+- [Configurar `apphosting.yaml`](https://firebase.google.com/docs/app-hosting/configure)
