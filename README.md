@@ -19,14 +19,12 @@ No hay un backend propio. Es una app Next.js que corre en el navegador y habla d
 | `/proyecciones` | Vendedor y admin | Dado un bono objetivo, propone escenarios de colocación. | `src/app/(app)/proyecciones/page.tsx` |
 | `/admin` | Solo admin | Pestañas **Metas**, **Importar** y **Esquema de incentivos**. | `src/app/(app)/admin/page.tsx` |
 
-**Qué no hace (aunque haya restos de código o documentos que lo sugieran):**
+**Qué no hace** (por si alguien lo da por hecho):
 
 - No se integra con HubSpot ni con Google Sheets.
-- No conoce la colocación real del vendedor; la escribe él mismo en la calculadora.
+- No conoce la colocación real del vendedor: se captura a mano en la calculadora.
 - No guarda historial de pagos ni de cálculos. Lo que calcula la calculadora no se persiste (solo queda en `localStorage`).
-- No tiene dashboard de KPIs, captura diaria ni recomendaciones con IA.
-
-Ver [Código sin uso](#código-sin-uso-pendiente-de-eliminar).
+- No tiene dashboard de KPIs, captura diaria ni recomendaciones con IA. El proyecto nació de la plantilla de Firebase Studio para una idea más amplia ("Aviva Móvil") que no se construyó. Ese código maqueta se eliminó (commit *"Eliminar funcionalidades que nunca se implementaron"*); sigue en el historial de git si alguna vez sirve de referencia.
 
 ## Fórmula del bono
 
@@ -34,7 +32,7 @@ Ver [Código sin uso](#código-sin-uso-pendiente-de-eliminar).
 Bono Final = Colocación × % Bono Base × Multiplicador de Calidad × Multiplicador de Crecimiento/Renovaciones
 ```
 
-- **Cumplimiento** = Colocación ÷ Meta × 100. Con el cumplimiento se elige el **nivel** (Fuera de juego, En Juego, Cumplido, Dominado, Sobresaliente, Élite). Cada rango es `[mínimo, máximo)`.
+- **Cumplimiento** = Colocación ÷ Meta × 100. Con el cumplimiento se elige el **nivel** (Fuera de juego, En Juego, Cumplido, Dominado, Sobresaliente, Élite). Cada rango es `[mínimo, máximo)`. Un cumplimiento que no cae en ningún nivel se paga como el primero; el editor del esquema avisa si hay huecos.
 - **% Bono Base**: sale de la tabla nivel × categoría. Las categorías son `G1` Formación, `G2` Territorio, `G3` Consolidado y `G4` Élite.
 - **Calidad**: A, B, C o D.
 - **Crecimiento / Renovaciones**: A, B, C o D. Aviva Contigo, Tu Negocio y Tu Compra usan la tabla de *Renovaciones*. Casa Marchand y Construrama usan la de *Crecimiento*.
@@ -72,10 +70,10 @@ src/
 └── lib/
     ├── firebase.ts                 # Inicializa Firebase (solo en el navegador)
     ├── types.ts                    # Tipos, categorías y productos
-    ├── incentives-config.ts        # ★ Valores por defecto y fórmulas del bono
+    ├── incentives-config.ts        # ★ Valores por defecto, fórmulas del bono y validación de niveles
     ├── firestore-service.ts        # Config de incentivos + getUserGoals (lectura del vendedor)
     ├── admin-service.ts            # ★ Escrituras del admin: lotes, importar, revertir, cerrar periodo, consolidar
-    ├── import-parser.ts            # ★ Lectura de CSV/XLSX y plan de importación (funciones puras)
+    ├── import-parser.ts            # ★ Lectura de CSV/XLSX, plan de importación y plan de reversión (funciones puras)
     ├── admin-utils.ts              # Correo normalizado, ID de meta, periodos, parseo de montos, CSV
     └── profile-merge.ts            # Fusión de perfiles duplicados de formato anterior
 ```
@@ -100,11 +98,9 @@ npm run dev                   # http://localhost:3000
 |---|---|
 | `npm run dev` | Servidor de desarrollo (Turbopack). |
 | `npm run build` / `npm start` | Build de producción (`output: 'standalone'`) y servidor. |
-| `npm run typecheck` | `tsc --noEmit`. |
-| `npm run lint` | **No funciona:** ESLint nunca se configuró en el proyecto. |
-| `npm run genkit:dev` / `genkit:watch` | Pertenecen al código de IA sin uso (ver abajo). |
+| `npm run typecheck` | `tsc --noEmit`. El build de producción también valida tipos: un error de tipos detiene el deploy. |
 
-No hay pruebas automatizadas.
+No hay pruebas automatizadas ni ESLint configurado. Las funciones puras de `src/lib/` (`import-parser.ts`, `admin-utils.ts`, `incentives-config.ts`) son el mejor lugar para empezar a escribir pruebas.
 
 ## Deploy
 
@@ -117,25 +113,6 @@ Producción corre en **Firebase App Hosting** con despliegue automático desde G
 | [docs/CARGA_DE_METAS.md](docs/CARGA_DE_METAS.md) | Modelo de datos, flujo tabla e importación, revertir, cierre de periodo, lectura del vendedor, datos de formato anterior y problemas conocidos. |
 | [docs/FIREBASE_SETUP.md](docs/FIREBASE_SETUP.md) | Crear un proyecto de Firebase desde cero, reglas y primer admin. |
 | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Despliegue en Firebase App Hosting. |
-
-## Código sin uso (pendiente de eliminar)
-
-El proyecto nació con la plantilla de Firebase Studio para una idea más amplia ("Aviva Móvil", descrita en `docs/blueprint.md`). Esa idea **nunca se implementó**. Los siguientes archivos son maquetas con datos inventados o funciones sin conectar. **Ningún menú enlaza a ellos y no se deben usar como referencia:**
-
-| Archivo / carpeta | Qué era |
-|---|---|
-| `src/app/(app)/configuracion/page.tsx` | Primera versión del admin, sustituida por `/admin`. No guarda nada. Es lo único que hace fallar `npm run typecheck`. |
-| `src/app/(app)/simular/page.tsx` | Simulador con datos fijos (`MOCK_DATA`). |
-| `src/app/(app)/incentivos/page.tsx` | Historial de pagos con datos aleatorios (`src/lib/data.ts`). |
-| `src/app/(app)/perfil/page.tsx` | Perfil con usuario ficticio y FAQs que mencionan HubSpot. |
-| `src/app/(app)/capturar/page.tsx`, `src/components/capturar/` | Captura diaria. La acción solo hace `console.log`. |
-| `src/components/dashboard/` | KPIs, gráficas y recomendaciones de un dashboard que no existe. |
-| `src/ai/`, `src/lib/actions.ts` | Recomendaciones con Genkit + Gemini. Nunca se conectó a una pantalla. |
-| `src/lib/data.ts`, `src/lib/placeholder-images.*` | Datos simulados para las páginas anteriores. |
-| `docs/blueprint.md` | Visión original del producto (HubSpot, Google Sheets, captura offline). No refleja el sistema. |
-| `.modified` | Archivo vacío de la plantilla. |
-
-Al borrarlos también se pueden quitar las dependencias que solo usan ellos (`genkit`, `@genkit-ai/*`, `genkit-cli`, `dotenv`), los scripts `genkit:*`, los tipos de `src/lib/types.ts` que solo usan los mocks (`User`, `Kpi`, `KpiData`, `ChartData`, `IncentivePeriod`, `MonthlyCommission`, `TimeRange`) y los componentes de `src/components/ui/` que queden sin importar.
 
 ## Licencia
 

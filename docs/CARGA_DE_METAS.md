@@ -77,8 +77,9 @@ Este formato es histórico y se mantiene para no duplicar documentos ya existent
 
 ### `imports/{autoId}` y `imports/{id}/chunks/{0000…}`: historial de importaciones
 
-- Documento principal: `fileName`, `period`, `createdAt`, `createdBy`, `status` (`running | completed | partial | failed | reverted`), `totalRows`, `counts {new, update, unchanged, error}`, `applied`, `failed`, `finishedAt`, `revertedAt`, `revertedBy`.
-- Subcolección `chunks`: cada documento guarda `entries`, con hasta 300 `RevertEntry`. Es el "antes" de cada vendedor que tocó la importación y se usa para revertir.
+- Documento principal: `fileName`, `period`, `createdAt`, `createdBy`, `status` (`running | completed | partial | failed | reverted`), `totalRows`, `counts {new, update, unchanged, error}`, `applied`, `failed`, `finishedAt`, `revertedAt`, `revertedBy`, `revertKept` y `tracksAfter`.
+- Subcolección `chunks`: cada documento guarda `entries`, con hasta 300 `RevertEntry`. Cada entrada tiene el "antes" (`profileBefore`, `goalBefore`) y el "después" (`profileAfter`, `goalAfter`) de un vendedor que tocó la importación. Con eso se revierte.
+- `tracksAfter: true` indica que la importación guardó el "después". Las importaciones hechas antes de este cambio no lo tienen (ver [Revertir](#revertir)).
 
 ### `config/incentives`: esquema de incentivos
 
@@ -148,9 +149,19 @@ Componentes: `src/components/admin/ImportWizard.tsx` (UI por pasos) y `src/compo
 
 ### Revertir
 
-`revertImport()` lee los `chunks` y regresa cada campo de perfil y cada meta a su valor previo. Si un perfil lo **creó** la importación, solo lo borra si la persona nunca ha iniciado sesión.
+*Admin → Importar → Historial → Revertir* llama a `revertImport()` (`admin-service.ts`). Esta función lee los `chunks`, el perfil actual y las metas actuales del periodo, y para cada vendedor deja que `planRevertEntry()` (`import-parser.ts`, función pura) decida qué hacer:
 
-> **Ojo:** revertir **restaura una foto, no deshace un diff**. Si después de importar alguien editó a mano la meta de un vendedor incluido en esa importación, revertir sobrescribe esa edición.
+| Estado actual del campo o de la meta | Qué hace |
+|---|---|
+| Sigue con el valor que dejó la importación (el "después") | Lo regresa al "antes". |
+| Ya está en el "antes" (p. ej. la importación se interrumpió antes de aplicarlo) | Nada. |
+| Tiene otro valor: alguien lo cambió después, a mano o con otra importación | **Lo conserva** y lo cuenta en `revertKept`. El toast avisa cuántos vendedores conservaron cambios. |
+
+Si un perfil lo **creó** la importación, se borra solo si la persona nunca ha iniciado sesión y nadie lo editó después.
+
+> **Importaciones anteriores a este cambio** (sin `tracksAfter`): sus entradas no tienen el "después", así que revertirlas restaura todo, aunque pise ediciones posteriores. El diálogo de confirmación lo advierte en esos casos.
+
+**Importaciones interrumpidas.** Si alguien cierra la pestaña a mitad de una carga, el registro queda en `running`. Después de 15 minutos (`IMPORT_STALE_MS`) el historial la muestra como **Interrumpida** y permite revertirla. Es seguro porque el "antes" se guarda antes de aplicar cualquier cambio.
 
 ### Agregar una columna nueva a la importación
 
@@ -162,12 +173,12 @@ Componentes: `src/components/admin/ImportWizard.tsx` (UI por pasos) y `src/compo
 ## Lectura: lo que ve el vendedor
 
 1. **Login** (`src/contexts/AuthContext.tsx`): Google sign-in. Se aceptan correos `@avivacredito.com`; otros dominios solo entran si su perfil ya existe con `role: 'admin'`. Si `users/{correo}` no existe, se crea como `vendedor` sin categoría ni producto. Si lo creó el admin, se le liga el `uid`.
-2. **Calculadora** (`src/app/(app)/originadores/page.tsx`): `getUserGoals(userProfile.email)` (`src/lib/firestore-service.ts`) trae todas las metas del correo y se queda con la de `period === mes actual`.
-   - Si la encuentra, usa `monthlyGoal` y `category` de la meta.
-   - Si no, muestra "No tienes una meta asignada", deja la meta en $0 y usa la categoría del perfil.
+2. **Calculadora** (`src/app/(app)/originadores/page.tsx`): `getUserGoals(userProfile.email)` (`src/lib/firestore-service.ts`) trae todas las metas del correo y se queda con la de `period === currentPeriod()`. El mes se calcula en hora local, igual que en el admin.
+   - Si la encuentra, usa `monthlyGoal`, `category` y `product` de la meta. Si la meta no trae producto, usa el del perfil. El producto decide si aplica la tabla de Crecimiento o la de Renovaciones.
+   - Si no, muestra "No tienes una meta asignada", deja la meta en $0 y usa la categoría y el producto del perfil.
    - La **colocación la escribe el vendedor a mano**. El sistema no conoce la colocación real.
    - Nada de lo que se calcula aquí se guarda. Colocación, categoría y multiplicadores se recuerdan solo en `localStorage` del navegador.
-3. **Proyecciones** (`src/app/(app)/proyecciones/page.tsx`): misma lectura. Si no hay meta del mes, no genera escenarios.
+3. **Proyecciones** (`src/app/(app)/proyecciones/page.tsx`): misma lectura y misma regla para el producto. Si no hay meta del mes, no genera escenarios.
 
 Las reglas permiten a un vendedor leer solo las metas donde `userEmail` coincide con su correo verificado.
 
@@ -200,18 +211,16 @@ El código actual tolera esos datos y los puede consolidar:
 
 1. En Firestore, busca en `userGoals` un documento con `userEmail == <correo en minúsculas>` y `period == <mes actual>`.
 2. Confirma que el vendedor entra con **esa misma** cuenta de Google (se compara contra el correo del token, que debe estar verificado).
-3. Si es el último día del mes por la tarde o noche, revisa el problema de zona horaria descrito abajo.
+3. Confirma que el periodo es el correcto: el vendedor ve la meta del mes en curso según la hora de su dispositivo.
 4. Si existe la meta pero da "Missing or insufficient permissions", las reglas publicadas no son las de `firestore.rules`.
 
 **"Al guardar dice Sin permiso"**: el periodo está cerrado o la sesión no tiene `role: 'admin'` en `users/{correo}`.
 
-**"Una importación quedó en 'Importando…' y no aparece el botón Revertir"**: alguien cerró la pestaña a mitad de la carga. Los `chunks` sí se guardaron. Cambia `status` a `partial` en la consola de Firestore para que aparezca el botón, o vuelve a importar el mismo archivo.
+**"Una importación aparece como 'Interrumpida'"**: alguien cerró la pestaña a mitad de la carga. Puedes revertirla desde el historial, o volver a importar el mismo archivo para terminarla (lo ya aplicado saldrá "sin cambios").
 
 ## Pendientes y problemas conocidos
 
-- **Zona horaria del periodo.** El admin calcula el mes con hora local (`currentPeriod()` en `admin-utils.ts`), pero la calculadora y proyecciones usan `new Date().toISOString().slice(0, 7)`, que está en **UTC**. En México (UTC−6), el último día del mes a partir de las 18:00 el vendedor ve el mes siguiente, que normalmente no tiene meta. Arreglo sugerido: usar `currentPeriod()` en ambas páginas.
-- **Producto en Proyecciones vs. Calculadora.** Para decidir entre Crecimiento y Renovaciones, la calculadora usa `userProfile.product` y proyecciones usa `userGoal.product`. Suelen coincidir, pero no siempre.
-- **Huecos en los niveles por defecto.** Los rangos son `[mínimo, máximo)` y un porcentaje que no cae en ningún nivel se clasifica como el **primero** ("Fuera de juego"). Con los valores por defecto de `incentives-config.ts` quedan huecos en 90–99.99 %, 109–109.99 % y 119–119.99 %. Verifica que la configuración guardada en `config/incentives` no los tenga. El editor del esquema avisa de traslapes, pero no de huecos.
+- **Huecos en los niveles por defecto (decisión de negocio).** Los rangos son `[mínimo, máximo)` y un porcentaje que no cae en ningún nivel se paga como el **primero** ("Fuera de juego"). Con los valores por defecto de `incentives-config.ts` quedan huecos en 90–100 %, 109–110 % y 119–120 %; por ejemplo, un cumplimiento de 95 % no paga bono. El editor del esquema ahora lo avisa, pero **no se cambiaron porcentajes**. Alguien de negocio debe confirmar los rangos correctos y ajustarlos en *Admin → Esquema de incentivos*, que es lo que usa producción (`config/incentives`).
 - **No hay baja de vendedores.** El tipo admite `status: 'baja'`, pero ninguna pantalla lo usa ni lo filtra.
-- **Escala.** El admin lee toda la colección `users` en cada carga. Funciona bien con miles de vendedores; con decenas de miles convendría paginar o usar índices por región.
-- **Sin pruebas automatizadas.** `import-parser.ts` y `admin-utils.ts` son funciones puras y son el mejor lugar para empezar.
+- **Escala.** El admin lee toda la colección `users` en cada carga, y revertir lee además las metas del periodo. Funciona bien con miles de vendedores; con decenas de miles convendría paginar o usar índices por región.
+- **Sin pruebas automatizadas.** `import-parser.ts` (incluido `planRevertEntry`), `admin-utils.ts` e `incentives-config.ts` son funciones puras y son el mejor lugar para empezar.

@@ -32,14 +32,14 @@ Firebase Console → **Build → App Hosting** → selecciona el backend:
 
 ## Notas del build
 
-- `next.config.ts` usa `output: 'standalone'` y tiene `typescript.ignoreBuildErrors: true` y `eslint.ignoreDuringBuilds: true`. Es decir, **el build no se detiene por errores de tipos**. Corre `npm run typecheck` antes de hacer merge. Cuando ya no queden errores de tipos, conviene quitar `ignoreBuildErrors`.
+- `next.config.ts` usa `output: 'standalone'`. El build **valida tipos**: un error de TypeScript detiene el rollout. Corre `npm run typecheck` antes de hacer merge. ESLint no está configurado (`eslint.ignoreDuringBuilds: true`).
 - `maxInstances: 1` alcanza porque casi todo el trabajo ocurre en el navegador contra Firestore. Súbelo en `apphosting.yaml` si ves latencia por concurrencia.
 
 ## Troubleshooting
 
 | Síntoma | Qué revisar |
 |---|---|
-| El rollout falla | Logs del build en *Rollouts*. Reproduce local con `npm ci && npm run build`. |
+| El rollout falla | Logs del build en *Rollouts*; un error de tipos es la causa más común. Reproduce local con `npm ci && npm run build`. |
 | Página en blanco o error al iniciar sesión | Variables `NEXT_PUBLIC_FIREBASE_*` del backend y dominio autorizado en Authentication. |
 | `Missing or insufficient permissions` tras un deploy | Las reglas publicadas no coinciden con `firestore.rules` del commit desplegado. |
 
