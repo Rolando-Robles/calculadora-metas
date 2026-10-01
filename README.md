@@ -1,192 +1,119 @@
-# Calculadora de Incentivos - Originadores de Excelencia
+# Calculadora de Incentivos: Originadores de Excelencia
 
-Sistema de calculadora de incentivos para el programa "Originadores de Excelencia" de Aviva.
+Aplicación web interna de Aviva para el programa de incentivos **Originadores de Excelencia**.
 
-## 🚀 Características
+- **Vendedores** (`@avivacredito.com`): ven la meta mensual que les asignó el admin y simulan cuánto bono ganarían.
+- **Administradores**: cargan vendedores y metas por mes (en tabla o desde CSV/Excel), cierran periodos y editan el esquema de incentivos.
 
-- **Sistema de Autenticación** con roles (Admin/Vendedor)
-- **Panel de Administración** para configurar todos los parámetros del sistema
-- **Calculadora Interactiva** de incentivos en tiempo real
-- **Proyecciones de Ventas** para planificación mensual
-- **Backend Firebase** con persistencia de datos
-- **Valores Configurables** desde la interfaz de admin
+No hay un backend propio. Es una app Next.js que corre en el navegador y habla directamente con **Firebase Auth** (Google) y **Firestore**. Toda la seguridad está en [`firestore.rules`](firestore.rules).
 
-## 📊 Fórmula de Cálculo
+> **¿Vas a tocar la carga de metas?** Empieza por [docs/CARGA_DE_METAS.md](docs/CARGA_DE_METAS.md).
+
+## Qué hace hoy la aplicación
+
+| Ruta | Quién | Qué hace | Archivo principal |
+|---|---|---|---|
+| `/login` | Todos | Inicio de sesión con Google. | `src/app/(auth)/login/page.tsx` |
+| `/` | — | Redirige a `/originadores`. | `src/app/(app)/page.tsx` |
+| `/originadores` | Vendedor y admin | **Calculadora**: carga la meta del mes desde Firestore y simula el bono con la colocación que escribe el vendedor. | `src/app/(app)/originadores/page.tsx` |
+| `/proyecciones` | Vendedor y admin | Dado un bono objetivo, propone escenarios de colocación. | `src/app/(app)/proyecciones/page.tsx` |
+| `/admin` | Solo admin | Pestañas **Metas**, **Importar** y **Esquema de incentivos**. | `src/app/(app)/admin/page.tsx` |
+
+**Qué no hace** (por si alguien lo da por hecho):
+
+- No se integra con HubSpot ni con Google Sheets.
+- No conoce la colocación real del vendedor: se captura a mano en la calculadora.
+- No guarda historial de pagos ni de cálculos. Lo que calcula la calculadora no se persiste (solo queda en `localStorage`).
+- No tiene dashboard de KPIs, captura diaria ni recomendaciones con IA. El proyecto nació de la plantilla de Firebase Studio para una idea más amplia ("Aviva Móvil") que no se construyó. Ese código maqueta se eliminó (commit *"Eliminar funcionalidades que nunca se implementaron"*); sigue en el historial de git si alguna vez sirve de referencia.
+
+## Fórmula del bono
 
 ```
-Bono Final = Colocación × % Bono Base × Multiplicador Calidad × Multiplicador Crecimiento
+Bono Final = Colocación × % Bono Base × Multiplicador de Calidad × Multiplicador de Crecimiento/Renovaciones
 ```
 
-### Componentes:
+- **Cumplimiento** = Colocación ÷ Meta × 100. Con el cumplimiento se elige el **nivel** (Fuera de juego, En Juego, Cumplido, Dominado, Sobresaliente, Élite). Cada rango es `[mínimo, máximo)`. Un cumplimiento que no cae en ningún nivel se paga como el primero; el editor del esquema avisa si hay huecos.
+- **% Bono Base**: sale de la tabla nivel × categoría. Las categorías son `G1` Formación, `G2` Territorio, `G3` Consolidado y `G4` Élite.
+- **Calidad**: A, B, C o D.
+- **Crecimiento / Renovaciones**: A, B, C o D. Aviva Contigo, Tu Negocio y Tu Compra usan la tabla de *Renovaciones*. Casa Marchand y Construrama usan la de *Crecimiento*.
 
-1. **Colocación**: Monto total colocado en el mes
-2. **% Bono Base**: Según nivel de cumplimiento de meta y categoría del usuario
-3. **Multiplicador de Calidad**: A (×1.20), B (×1.00), C (×0.60), D (×0.00)
-4. **Multiplicador de Crecimiento**: A (×1.15), B (×1.00), C (×0.80), D (×0.60)
+Los valores vigentes viven en Firestore (`config/incentives`) y se editan en *Admin → Esquema de incentivos*. Los valores por defecto, y todas las funciones de cálculo, están en [`src/lib/incentives-config.ts`](src/lib/incentives-config.ts).
 
-## 🛠️ Instalación
-
-### Prerrequisitos
-
-- Node.js 18+
-- npm o yarn
-- Cuenta de Firebase
-
-### Pasos
-
-1. Clona el repositorio:
-```bash
-git clone https://github.com/RolandoRobles12/calculadora-incentivos.git
-cd calculadora-incentivos
-```
-
-2. Instala dependencias:
-```bash
-npm install
-```
-
-3. Configura Firebase:
-   - Sigue la guía en [docs/FIREBASE_SETUP.md](docs/FIREBASE_SETUP.md)
-   - Crea el archivo `.env.local` con tus credenciales
-
-4. Inicia el servidor de desarrollo:
-```bash
-npm run dev
-```
-
-5. Abre [http://localhost:3000/login](http://localhost:3000/login)
-
-## 👤 Usuarios de Prueba
-
-- **Admin**: admin@aviva.com / admin123
-- **Vendedor**: vendedor@aviva.com / vendedor123
-
-## 📱 Páginas Principales
-
-### Para Vendedores:
-
-- `/` - Dashboard con KPIs y recomendaciones
-- `/originadores` - Calculadora de incentivos
-- `/proyecciones` - Proyecciones de ventas mensuales
-
-### Para Administradores:
-
-- `/admin` - Panel de administración completo
-  - Editar niveles de cumplimiento y porcentajes de bono
-  - Configurar multiplicadores de calidad y crecimiento
-  - Gestionar metas de usuarios
-  - Restaurar valores por defecto
-
-## 🔒 Sistema de Roles
-
-### Admin
-- Acceso completo a todas las funcionalidades
-- Puede editar configuraciones del sistema
-- Gestiona metas de usuarios
-- Ve todos los datos
-
-### Vendedor
-- Acceso a calculadora e incentivos
-- Puede crear proyecciones personales
-- Ve solo sus propios datos
-
-## 🎨 Personalización
-
-### Colores del Tema
-
-Los colores están configurados en `src/app/globals.css` usando el esquema Aviva:
-
-- **Primary**: Teal (#2B9A8B - HSL: 174 65% 41%)
-- **Secondary**: Green (#00A86B - HSL: 147 100% 35%)
-
-### Modificar Valores por Defecto
-
-Los valores por defecto están en `src/lib/incentives-config.ts`. Estos se cargan la primera vez que un admin accede al sistema y se pueden editar desde el panel de administración.
-
-## 📚 Documentación Técnica
-
-### Estructura del Proyecto
+## Mapa del código
 
 ```
 src/
 ├── app/
-│   ├── (app)/          # Rutas protegidas de la aplicación
-│   │   ├── admin/      # Panel de administración
-│   │   ├── originadores/  # Calculadora
-│   │   └── proyecciones/  # Proyecciones
-│   └── (auth)/         # Rutas de autenticación
-│       └── login/      # Página de login
+│   ├── layout.tsx                  # Raíz: AuthProvider + Toaster
+│   ├── (auth)/login/page.tsx       # Login con Google
+│   └── (app)/                      # Rutas protegidas (ProtectedRoute en layout.tsx)
+│       ├── layout.tsx              # Sidebar (escritorio) + BottomNav (móvil)
+│       ├── page.tsx                # Redirige a /originadores
+│       ├── originadores/page.tsx   # Calculadora del vendedor  ← lee la meta
+│       ├── proyecciones/page.tsx   # Escenarios para un bono objetivo  ← lee la meta
+│       └── admin/page.tsx          # Panel admin (pestañas)
 ├── components/
-│   ├── auth/           # Componentes de autenticación
-│   ├── layout/         # Layouts y navegación
-│   └── ui/             # Componentes UI (shadcn)
-├── contexts/
-│   └── AuthContext.tsx # Contexto de autenticación
-├── lib/
-│   ├── firebase.ts     # Configuración de Firebase
-│   ├── firestore-service.ts  # Servicios de Firestore
-│   ├── incentives-config.ts  # Configuración de incentivos
-│   └── types.ts        # Tipos TypeScript
-└── hooks/
-    └── use-incentive-config.ts  # Hook para cargar config
+│   ├── admin/                      # ★ Todo el panel de administración
+│   │   ├── GoalsManager.tsx        #   Pestaña Metas: carga, edición, guardado, cierre de periodo
+│   │   ├── VendorGoalsTable.tsx    #   Tabla virtualizada con edición en línea
+│   │   ├── BulkActionsBar.tsx      #   Acciones masivas sobre seleccionados
+│   │   ├── ImportWizard.tsx        #   Pestaña Importar: archivo → columnas → vista previa → aplicar
+│   │   ├── ImportHistory.tsx       #   Historial y "Revertir"
+│   │   ├── IncentiveSchemeEditor.tsx # Pestaña Esquema de incentivos
+│   │   ├── PeriodPicker.tsx        #   Selector de mes
+│   │   └── LegacyDataBanner.tsx    #   Consolidación de datos de formato anterior
+│   ├── auth/ProtectedRoute.tsx     # Redirige a /login; requireAdmin para /admin
+│   ├── layout/bottom-nav.tsx       # Navegación móvil
+│   └── ui/                         # Componentes shadcn/ui (no tienen lógica de negocio)
+├── contexts/AuthContext.tsx        # Login, dominio permitido, creación/ligado del perfil users/{correo}
+├── hooks/use-incentive-config.ts   # Lee config/incentives (con valores por defecto)
+└── lib/
+    ├── firebase.ts                 # Inicializa Firebase (solo en el navegador)
+    ├── types.ts                    # Tipos, categorías y productos
+    ├── incentives-config.ts        # ★ Valores por defecto, fórmulas del bono y validación de niveles
+    ├── firestore-service.ts        # Config de incentivos + getUserGoals (lectura del vendedor)
+    ├── admin-service.ts            # ★ Escrituras del admin: lotes, importar, revertir, cerrar periodo, consolidar
+    ├── import-parser.ts            # ★ Lectura de CSV/XLSX, plan de importación y plan de reversión (funciones puras)
+    ├── admin-utils.ts              # Correo normalizado, ID de meta, periodos, parseo de montos, CSV
+    └── profile-merge.ts            # Fusión de perfiles duplicados de formato anterior
 ```
 
-### Stack Tecnológico
+## Arranque local
 
-- **Framework**: Next.js 15
-- **UI**: React 18 + TailwindCSS
-- **Componentes**: shadcn/ui + Radix UI
-- **Backend**: Firebase (Auth + Firestore)
-- **Gráficas**: Recharts
-- **TypeScript**: Tipado completo
-
-## 🔧 Scripts
+Requisitos: **Node 20** y acceso al proyecto de Firebase.
 
 ```bash
-# Desarrollo
-npm run dev
-
-# Build de producción
-npm run build
-
-# Iniciar producción
-npm start
-
-# Type checking
-npm run typecheck
-
-# Linting
-npm run lint
+npm ci
+cp .env.example .env.local   # y llena los valores (Firebase Console → Project settings → Your apps)
+npm run dev                   # http://localhost:3000
 ```
 
-## 🚀 Deployment
+- La configuración web de Firebase **no es secreta**. Los valores de producción ya están en [`apphosting.yaml`](apphosting.yaml) (proyecto `studio-8143131557-91b6c`).
+- ⚠️ **No hay emuladores configurados.** Si usas los valores de producción en `.env.local`, tu entorno local lee y escribe en la **base de producción**. Para desarrollar con tranquilidad, crea otro proyecto de Firebase y sigue [docs/FIREBASE_SETUP.md](docs/FIREBASE_SETUP.md).
+- Para entrar necesitas una cuenta Google `@avivacredito.com`. Para ver `/admin`, tu documento `users/{tu-correo}` debe tener `role: "admin"`.
 
-### Firebase App Hosting (Recomendado) ⭐
+## Scripts
 
-La forma más sencilla de desplegar esta aplicación Next.js:
+| Script | Uso |
+|---|---|
+| `npm run dev` | Servidor de desarrollo (Turbopack). |
+| `npm run build` / `npm start` | Build de producción (`output: 'standalone'`) y servidor. |
+| `npm run typecheck` | `tsc --noEmit`. El build de producción también valida tipos: un error de tipos detiene el deploy. |
 
-1. **Lee la guía completa**: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
-2. **Conecta tu repositorio** de GitHub en Firebase Console
-3. **Configura las variables** de entorno en Firebase
-4. **Deploy automático** desde GitHub
+No hay pruebas automatizadas ni ESLint configurado. Las funciones puras de `src/lib/` (`import-parser.ts`, `admin-utils.ts`, `incentives-config.ts`) son el mejor lugar para empezar a escribir pruebas.
 
-**Características:**
-- ✅ Deploy automático en cada push
-- ✅ Soporte completo para Next.js (SSR, API Routes, etc.)
-- ✅ Preview deployments en cada PR
-- ✅ Escalado automático
-- ✅ Sin configuración manual de build
+## Deploy
 
-**📖 Guía paso a paso**: [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+Producción corre en **Firebase App Hosting** con despliegue automático desde GitHub, usando [`apphosting.yaml`](apphosting.yaml). Las **reglas de Firestore no se despliegan solas**: se publican a mano. Detalles en [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
-### Otras opciones
+## Documentación
 
-#### Vercel
+| Documento | Contenido |
+|---|---|
+| [docs/CARGA_DE_METAS.md](docs/CARGA_DE_METAS.md) | Modelo de datos, flujo tabla e importación, revertir, cierre de periodo, lectura del vendedor, datos de formato anterior y problemas conocidos. |
+| [docs/FIREBASE_SETUP.md](docs/FIREBASE_SETUP.md) | Crear un proyecto de Firebase desde cero, reglas y primer admin. |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Despliegue en Firebase App Hosting. |
 
-1. Conecta tu repositorio a Vercel
-2. Agrega las variables de entorno de Firebase
-3. Deploy automático
+## Licencia
 
-## 📄 Licencia
-
-Propiedad de Aviva - Uso interno únicamente.
+Propiedad de Aviva. Uso interno únicamente.

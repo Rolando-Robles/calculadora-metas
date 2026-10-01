@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { formatPeriod } from '@/lib/admin-utils';
-import { listImports, revertImport, type ImportLog } from '@/lib/admin-service';
+import { isInterruptedImport, listImports, revertImport, type ImportLog } from '@/lib/admin-service';
 
 const STATUS_LABEL: Record<ImportLog['status'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
   running: { label: 'En curso', variant: 'outline' },
@@ -26,6 +26,9 @@ const STATUS_LABEL: Record<ImportLog['status'], { label: string; variant: 'defau
   failed: { label: 'Fallida', variant: 'destructive' },
   reverted: { label: 'Revertida', variant: 'secondary' },
 };
+
+// Se cerró la pestaña a mitad de la carga: los valores previos ya estaban guardados, así que se puede revertir.
+const INTERRUPTED_LABEL = { label: 'Interrumpida', variant: 'destructive' as const };
 
 interface ImportHistoryProps {
   actor: string;
@@ -59,13 +62,17 @@ export function ImportHistory({ actor, reloadKey, onReverted }: ImportHistoryPro
     setConfirm(null);
     setReverting(log.id);
     try {
-      const { ok, failed } = await revertImport(log, actor);
+      const { ok, failed, kept } = await revertImport(log, actor);
+      const keptNote =
+        kept > 0
+          ? ` ${kept} conservaron cambios hechos después de la importación (no se sobrescribieron).`
+          : '';
       toast({
         title: failed > 0 ? 'Reversión incompleta' : 'Importación revertida',
         description:
-          failed > 0
-            ? `${ok} restaurados, ${failed} con error (¿el periodo está cerrado?).`
-            : `${ok} vendedores regresaron a sus valores anteriores.`,
+          (failed > 0
+            ? `${ok} procesados, ${failed} con error (¿el periodo está cerrado?).`
+            : `${ok} vendedores procesados.`) + keptNote,
         variant: failed > 0 ? 'destructive' : undefined,
       });
       onReverted(log.period);
@@ -109,7 +116,8 @@ export function ImportHistory({ actor, reloadKey, onReverted }: ImportHistoryPro
               </thead>
               <tbody>
                 {imports.map(log => {
-                  const status = STATUS_LABEL[log.status] || STATUS_LABEL.completed;
+                  const interrupted = isInterruptedImport(log);
+                  const status = interrupted ? INTERRUPTED_LABEL : STATUS_LABEL[log.status] || STATUS_LABEL.completed;
                   return (
                     <tr key={log.id} className="border-b last:border-0">
                       <td className="py-2 pr-3 whitespace-nowrap">
@@ -130,7 +138,7 @@ export function ImportHistory({ actor, reloadKey, onReverted }: ImportHistoryPro
                         <Badge variant={status.variant}>{status.label}</Badge>
                       </td>
                       <td className="py-2 text-right">
-                        {log.status !== 'reverted' && log.status !== 'running' && (
+                        {log.status !== 'reverted' && (log.status !== 'running' || interrupted) && (
                           <Button
                             variant="ghost"
                             size="sm"
@@ -168,9 +176,17 @@ export function ImportHistory({ actor, reloadKey, onReverted }: ImportHistoryPro
                 <ul className="list-disc space-y-1 pl-5">
                   <li>Las metas y los perfiles que modificó regresan a su valor anterior.</li>
                   <li>Los vendedores que creó se eliminan si nunca han iniciado sesión.</li>
-                  <li>
-                    Si después se editó a mano alguno de esos vendedores, esa edición también se sobrescribe.
-                  </li>
+                  {confirm?.tracksAfter ? (
+                    <li>
+                      Lo que se cambió después de esta importación (a mano o con otra carga) se conserva y no se
+                      sobrescribe.
+                    </li>
+                  ) : (
+                    <li>
+                      Esta importación es de una versión anterior: si después se editó alguno de esos vendedores, esa
+                      edición también se sobrescribe.
+                    </li>
+                  )}
                 </ul>
               </div>
             </AlertDialogDescription>

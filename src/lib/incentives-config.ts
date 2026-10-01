@@ -224,6 +224,56 @@ export function getApplicableGrowthMultipliers(
   return growthMults;
 }
 
+/** Fila vacía que el equipo usa como separador visual; no afecta el cálculo. */
+export const isPlaceholderLevel = (l: GoalAchievementConfig) =>
+  !l.label.trim() && l.minPercentage === 0 && (l.maxPercentage === 0 || l.maxPercentage === null);
+
+/** Advertencias (no bloquean el guardado) sobre rangos que el cálculo interpretaría raro. */
+export function validateLevels(levels: GoalAchievementConfig[]): string[] {
+  const warnings: string[] = [];
+  const active = levels.filter(l => !isPlaceholderLevel(l));
+  active.forEach(l => {
+    const name = l.label || 'Nivel sin nombre';
+    if (l.maxPercentage !== null && l.maxPercentage <= l.minPercentage) {
+      warnings.push(`${name}: el máximo (${l.maxPercentage}%) debe ser mayor que el mínimo (${l.minPercentage}%).`);
+    }
+  });
+  const openEnded = active.filter(l => l.maxPercentage === null);
+  if (openEnded.length > 1) {
+    warnings.push(`Hay ${openEnded.length} niveles sin máximo (∞); solo el último debería tenerlo.`);
+  }
+  for (let i = 0; i < active.length; i++) {
+    for (let j = i + 1; j < active.length; j++) {
+      const a = active[i];
+      const b = active[j];
+      const aMax = a.maxPercentage ?? Infinity;
+      const bMax = b.maxPercentage ?? Infinity;
+      if (a.minPercentage < bMax && b.minPercentage < aMax) {
+        warnings.push(
+          `${a.label || 'Sin nombre'} y ${b.label || 'Sin nombre'} se enciman; el cálculo usará el que aparece primero.`
+        );
+      }
+    }
+  }
+  // Huecos: un cumplimiento que no cae en ningún nivel se calcula con el primero de la lista
+  // (ver getGoalAchievementLevel). El máximo de cada nivel no se incluye en su rango.
+  const fallback = levels[0]?.label || 'el primer nivel';
+  const sorted = [...active].sort((a, b) => a.minPercentage - b.minPercentage);
+  if (sorted.length > 0 && sorted[0].minPercentage > 0) {
+    warnings.push(`De 0% a ${sorted[0].minPercentage}% no hay nivel: ese cumplimiento se calcula como "${fallback}".`);
+  }
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const max = sorted[i].maxPercentage;
+    const nextMin = sorted[i + 1].minPercentage;
+    if (max !== null && max < nextMin) {
+      warnings.push(
+        `Entre ${max}% y ${nextMin}% no hay nivel: ese cumplimiento se calcula como "${fallback}".`
+      );
+    }
+  }
+  return warnings;
+}
+
 /**
  * Obtiene la configuración de nivel de cumplimiento según el porcentaje
  */

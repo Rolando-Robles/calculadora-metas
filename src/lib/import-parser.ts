@@ -11,7 +11,7 @@ import {
   simplify,
 } from './admin-utils';
 import type { MergedProfile } from './profile-merge';
-import type { ProfileFields, RevertEntry, VendorChange } from './admin-service';
+import type { GoalSnapshot, ProfileFields, RevertEntry, VendorChange } from './admin-service';
 
 // ===== Lectura del archivo =====
 
@@ -303,6 +303,7 @@ export function buildImportPlan(params: {
               email,
               profileExisted: !!existing?.hasCanonical,
               profileBefore,
+              profileAfter: { ...profile } as Record<string, string>,
               goalTouched: goalChange !== undefined,
               goalBefore:
                 goalChange !== undefined && existingGoal
@@ -312,6 +313,16 @@ export function buildImportPlan(params: {
                       ...(existingGoal.product ? { product: existingGoal.product } : {}),
                     }
                   : null,
+              // Firestore rechaza `undefined`: solo se incluye cuando la importación escribe la meta.
+              ...(goalChange
+                ? {
+                    goalAfter: {
+                      monthlyGoal: goalChange.monthlyGoal,
+                      category: goalChange.category,
+                      ...(goalChange.product ? { product: goalChange.product } : {}),
+                    },
+                  }
+                : {}),
             },
     });
   });
@@ -327,4 +338,65 @@ export function buildImportPlan(params: {
     warningCount: plan.filter(r => r.warnings.length > 0).length,
     notInFile,
   };
+}
+
+// ===== Revertir una importación =====
+
+export interface RevertDecision {
+  /** 'delete' = borrar el perfil que creó la importación; objeto = campos a restaurar (null = vaciar); null = nada. */
+  profile: 'delete' | Record<string, string | null> | null;
+  /** 'delete' = quitar la meta; objeto = volver a esa meta; null = nada. */
+  goal: 'delete' | GoalSnapshot | null;
+  /** Hay cambios hechos después de la importación que se conservan. */
+  kept: boolean;
+}
+
+const sameValue = (a?: string | null, b?: string | null) => (a || null) === (b || null);
+
+export function goalSnapshotOf(data?: Record<string, any> | null): GoalSnapshot | null {
+  return data ? { monthlyGoal: Number(data.monthlyGoal) || 0, category: data.category, product: data.product } : null;
+}
+
+export function sameGoal(a?: GoalSnapshot | null, b?: GoalSnapshot | null): boolean {
+  if (!a || !b) return !a && !b;
+  return a.monthlyGoal === b.monthlyGoal && sameValue(a.category, b.category) && sameValue(a.product, b.product);
+}
+
+/**
+ * Decide qué restaurar de un vendedor al revertir una importación. Solo se
+ * restaura lo que sigue con el valor que dejó la importación; lo que alguien
+ * cambió después (a mano o con otra importación) se conserva. Las entradas de
+ * importaciones anteriores, sin `profileAfter`/`goalAfter`, se restauran completas.
+ */
+export function planRevertEntry(
+  entry: RevertEntry,
+  current: { profile?: Record<string, any>; goal: GoalSnapshot | null; loggedIn: boolean }
+): RevertDecision {
+  let kept = false;
+
+  let goal: RevertDecision['goal'] = null;
+  if (entry.goalTouched) {
+    if (!entry.goalAfter || sameGoal(current.goal, entry.goalAfter)) {
+      goal = entry.goalBefore ?? 'delete';
+    } else if (!sameGoal(current.goal, entry.goalBefore)) {
+      kept = true;
+    }
+  }
+
+  const restore: Record<string, string | null> = {};
+  for (const [field, before] of Object.entries(entry.profileBefore)) {
+    const now = current.profile?.[field] as string | undefined;
+    if (!entry.profileAfter || sameValue(now, entry.profileAfter[field])) restore[field] = before;
+    else if (!sameValue(now, before)) kept = true;
+  }
+
+  let profile: RevertDecision['profile'] = null;
+  if (!entry.profileExisted && !current.loggedIn) {
+    // Perfil creado por la importación: se borra solo si nadie lo tocó después.
+    profile = kept ? null : 'delete';
+  } else if (Object.keys(restore).length > 0) {
+    profile = restore;
+  }
+
+  return { profile, goal, kept };
 }

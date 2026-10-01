@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Sparkles, LineChart, Settings, LogOut, Shield } from 'lucide-react';
+import { Sparkles, LineChart, LogOut, Shield } from 'lucide-react';
 import { BottomNav } from '@/components/layout/bottom-nav';
 import {
   SidebarProvider,

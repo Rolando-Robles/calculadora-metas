@@ -36,6 +36,7 @@ import {
   GROWTH_MULTIPLIERS,
   QUALITY_MULTIPLIERS,
   RENEWAL_MULTIPLIERS,
+  validateLevels,
 } from '@/lib/incentives-config';
 
 interface SchemeState {
@@ -43,40 +44,6 @@ interface SchemeState {
   qualityMults: QualityMultiplierConfig[];
   growthMults: GrowthMultiplierConfig[];
   renewalMults: GrowthMultiplierConfig[];
-}
-
-/** Fila vacía que el equipo usa como separador visual; no afecta el cálculo. */
-const isPlaceholderLevel = (l: GoalAchievementConfig) =>
-  !l.label.trim() && l.minPercentage === 0 && (l.maxPercentage === 0 || l.maxPercentage === null);
-
-/** Advertencias (no bloquean el guardado) sobre rangos que el cálculo interpretaría raro. */
-function validateLevels(levels: GoalAchievementConfig[]): string[] {
-  const warnings: string[] = [];
-  const active = levels.filter(l => !isPlaceholderLevel(l));
-  active.forEach(l => {
-    const name = l.label || 'Nivel sin nombre';
-    if (l.maxPercentage !== null && l.maxPercentage <= l.minPercentage) {
-      warnings.push(`${name}: el máximo (${l.maxPercentage}%) debe ser mayor que el mínimo (${l.minPercentage}%).`);
-    }
-  });
-  const openEnded = active.filter(l => l.maxPercentage === null);
-  if (openEnded.length > 1) {
-    warnings.push(`Hay ${openEnded.length} niveles sin máximo (∞); solo el último debería tenerlo.`);
-  }
-  for (let i = 0; i < active.length; i++) {
-    for (let j = i + 1; j < active.length; j++) {
-      const a = active[i];
-      const b = active[j];
-      const aMax = a.maxPercentage ?? Infinity;
-      const bMax = b.maxPercentage ?? Infinity;
-      if (a.minPercentage < bMax && b.minPercentage < aMax) {
-        warnings.push(
-          `${a.label || 'Sin nombre'} y ${b.label || 'Sin nombre'} se enciman; el cálculo usará el que aparece primero.`
-        );
-      }
-    }
-  }
-  return warnings;
 }
 
 export function IncentiveSchemeEditor({

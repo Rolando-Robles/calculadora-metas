@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Sparkles, LineChart, Settings } from 'lucide-react';
+import { Sparkles, LineChart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [

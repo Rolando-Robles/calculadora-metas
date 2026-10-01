@@ -1,41 +1,13 @@
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
   output: 'standalone',
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // El proyecto no tiene ESLint configurado; los tipos sí se validan en el build.
   eslint: {
     ignoreDuringBuilds: true,
   },
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: 'placehold.co',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-        port: '',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https' ,
-        hostname: 'picsum.photos',
-        port: '',
-        pathname: '/**',
-      },
-    ],
-  },
-  experimental: {
-    // This allows requests from the development environment (e.g. Cloud Workstations)
-    // to the Next.js dev server.
-    allowedDevOrigins: ["*.cloudworkstations.dev"],
-  },
+  // Permite abrir el servidor de desarrollo desde Firebase Studio / Cloud Workstations.
+  allowedDevOrigins: ['*.cloudworkstations.dev'],
 };
 
 export default nextConfig;
