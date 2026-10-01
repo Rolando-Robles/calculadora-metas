@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserGoals } from '@/lib/firestore-service';
+import { currentPeriod } from '@/lib/admin-utils';
 import {
   Card,
   CardContent,
@@ -61,6 +62,8 @@ export default function OriginadoresPage() {
 
   // META viene de Firestore, no de localStorage
   const [meta, setMeta] = useState(0);
+  // Producto con el que se cargó la meta del periodo (define Crecimiento vs. Renovaciones)
+  const [goalProduct, setGoalProduct] = useState<ProductType | undefined>();
 
   const [category, setCategory] = useState<UserCategory>(() => {
     if (typeof window !== 'undefined') {
@@ -95,37 +98,31 @@ export default function OriginadoresPage() {
       }
 
       try {
-        const currentPeriod = new Date().toISOString().slice(0, 7);
-        console.log('📧 Buscando metas para:', userProfile.email);
-
+        // Mes en hora local, igual que el panel de admin al guardar la meta.
+        const period = currentPeriod();
         const userGoals = await getUserGoals(userProfile.email);
-        console.log('📋 Metas encontradas:', userGoals);
-
-        const currentGoal = userGoals.find(g => g.period === currentPeriod);
-        console.log('🎯 Meta actual:', currentGoal);
+        const currentGoal = userGoals.find(g => g.period === period);
 
         if (currentGoal && currentGoal.monthlyGoal) {
-          // Si hay una meta en Firestore, usarla
+          // La meta guarda categoría y producto del periodo; tienen prioridad sobre el perfil.
           setMeta(currentGoal.monthlyGoal);
+          setGoalProduct(currentGoal.product);
           if (currentGoal.category) {
             setCategory(currentGoal.category);
           }
           setNoGoalAssigned(false);
-          console.log('✅ Meta cargada:', currentGoal.monthlyGoal);
         } else {
           // Sin meta asignada: no mostrar valores por default que confundan al usuario
           setMeta(0);
+          setGoalProduct(undefined);
           setColocacion(0);
           setNoGoalAssigned(true);
           if (userProfile.category) {
             setCategory(userProfile.category as UserCategory);
-            console.log('ℹ️ No hay meta, usando categoría del perfil');
-          } else {
-            console.log('⚠️ No se encontró meta para el usuario');
           }
         }
       } catch (error) {
-        console.error('❌ Error cargando meta del usuario:', error);
+        console.error('Error cargando meta del usuario:', error);
       } finally {
         setLoadingUserGoal(false);
       }
@@ -161,7 +158,7 @@ export default function OriginadoresPage() {
     }
   }, [growthMultiplier]);
 
-  const userProduct = userProfile?.product as ProductType | undefined;
+  const userProduct = goalProduct ?? (userProfile?.product as ProductType | undefined);
   const applicableGrowthMults = getApplicableGrowthMultipliers(userProduct, growthMults, renewalMults);
 
   const calculation = useMemo(() => {

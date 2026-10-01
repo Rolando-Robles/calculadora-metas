@@ -18,6 +18,7 @@ import { db } from './firebase';
 import type { PeriodLock, ProductType, UserCategory, UserGoalDoc, VendorProfile } from './types';
 import { chunk, goalDocId, normalizeEmail } from './admin-utils';
 import { groupUserDocs, toStoredProfile, type MergedProfile, type RawUserDoc } from './profile-merge';
+import { goalSnapshotOf, planRevertEntry } from './import-parser';
 
 function fdb(): Firestore {
   if (!db) throw new Error('Firestore no está inicializado');
@@ -338,14 +339,28 @@ export async function consolidateLegacyData(
 
 // ===== Importaciones =====
 
+export interface GoalSnapshot {
+  monthlyGoal: number;
+  category?: string;
+  product?: string;
+}
+
 export interface RevertEntry {
   email: string;
   /** Existía `users/{correo}` antes de la importación. */
   profileExisted: boolean;
   /** Valor previo de cada campo de perfil que la importación modificó (null = vacío). */
   profileBefore: Record<string, string | null>;
+  /**
+   * Valor que escribió la importación en esos campos. Al revertir solo se
+   * restauran los que siguen así (no se pisan ediciones posteriores).
+   * Las importaciones anteriores a este campo no lo tienen.
+   */
+  profileAfter?: Record<string, string>;
   goalTouched: boolean;
-  goalBefore: { monthlyGoal: number; category?: string; product?: string } | null;
+  goalBefore: GoalSnapshot | null;
+  /** Meta que escribió la importación (presente cuando goalTouched, salvo importaciones anteriores). */
+  goalAfter?: GoalSnapshot;
 }
 
 export interface ImportLog {
@@ -361,6 +376,17 @@ export interface ImportLog {
   failed?: number;
   revertedAt?: string;
   revertedBy?: string;
+  /** Vendedores que al revertir conservaron cambios hechos después de la importación. */
+  revertKept?: number;
+  /** Sus entradas guardan el "después": revertir no pisa cambios posteriores. Falta en importaciones anteriores. */
+  tracksAfter?: boolean;
+}
+
+/** Una importación que lleva este tiempo "en curso" se considera interrumpida (se cerró la pestaña). */
+export const IMPORT_STALE_MS = 15 * 60 * 1000;
+
+export function isInterruptedImport(log: ImportLog, now = Date.now()): boolean {
+  return log.status === 'running' && now - (Date.parse(log.createdAt) || 0) > IMPORT_STALE_MS;
 }
 
 export async function executeImport(params: {
@@ -382,6 +408,7 @@ export async function executeImport(params: {
     status: 'running',
     totalRows: params.totalRows,
     counts: params.counts,
+    tracksAfter: true,
   });
 
   // Primero se guarda el "antes" para poder revertir aunque la carga se interrumpa.
@@ -418,61 +445,71 @@ export async function listImports(max = 20): Promise<ImportLog[]> {
 }
 
 /**
- * Regresa perfiles y metas al estado previo a la importación. Los perfiles
- * que la importación creó se borran solo si la persona nunca ha iniciado sesión.
+ * Regresa perfiles y metas al estado previo a la importación, sin pisar lo que
+ * se cambió después (ver `planRevertEntry`). Los perfiles que la importación
+ * creó se borran solo si la persona nunca ha iniciado sesión y nadie los editó.
  */
 export async function revertImport(
   log: ImportLog,
   actor: string,
   onProgress?: (done: number, total: number) => void
-): Promise<{ ok: number; failed: number }> {
+): Promise<{ ok: number; failed: number; kept: number }> {
   const logRef = doc(fdb(), 'imports', log.id);
   const chunksSnap = await getDocs(collection(logRef, 'chunks'));
   const entries: RevertEntry[] = chunksSnap.docs.flatMap(d => d.data().entries || []);
 
-  const usersSnap = await getDocs(collection(fdb(), 'users'));
-  const loggedIn = new Set(
-    usersSnap.docs.filter(d => d.data().uid || d.data().lastLoginAt).map(d => d.id)
-  );
+  const [usersSnap, goalsSnap] = await Promise.all([
+    getDocs(collection(fdb(), 'users')),
+    getDocs(query(collection(fdb(), 'userGoals'), where('period', '==', log.period))),
+  ]);
+  const users = new Map(usersSnap.docs.map(d => [d.id, d.data()]));
+  const goals = new Map(goalsSnap.docs.map(d => [d.id, d.data()]));
 
+  let kept = 0;
   const groups = entries.map(entry => {
+    const goalId = goalDocId(entry.email, log.period);
+    const profile = users.get(entry.email);
+    const decision = planRevertEntry(entry, {
+      profile,
+      goal: goalSnapshotOf(goals.get(goalId)),
+      loggedIn: !!(profile?.uid || profile?.lastLoginAt),
+    });
+    if (decision.kept) kept++;
+
     const ops: BatchOp[] = [];
     const userRef = doc(fdb(), 'users', entry.email);
-    const fields = Object.keys(entry.profileBefore);
-    if (!entry.profileExisted && !loggedIn.has(entry.email)) {
+    if (decision.profile === 'delete') {
       ops.push({ kind: 'delete', ref: userRef });
-    } else if (fields.length > 0) {
+    } else if (decision.profile) {
       const data: Record<string, unknown> = { updatedAt: nowIso() };
-      for (const field of fields) {
-        const before = entry.profileBefore[field];
+      for (const [field, before] of Object.entries(decision.profile)) {
         data[field] = before === null ? deleteField() : before;
       }
       ops.push({ kind: 'set', ref: userRef, merge: true, data });
     }
-    if (entry.goalTouched) {
-      const goalRef = doc(fdb(), 'userGoals', goalDocId(entry.email, log.period));
-      if (entry.goalBefore) {
-        ops.push({
-          kind: 'set',
-          ref: goalRef,
-          data: clean({
-            userEmail: entry.email,
-            period: log.period,
-            ...entry.goalBefore,
-            updatedAt: nowIso(),
-            updatedBy: actor,
-          }),
-        });
-      } else {
-        ops.push({ kind: 'delete', ref: goalRef });
-      }
+
+    const goalRef = doc(fdb(), 'userGoals', goalId);
+    if (decision.goal === 'delete') {
+      ops.push({ kind: 'delete', ref: goalRef });
+    } else if (decision.goal) {
+      ops.push({
+        kind: 'set',
+        ref: goalRef,
+        data: clean({
+          userEmail: entry.email,
+          period: log.period,
+          ...decision.goal,
+          updatedAt: nowIso(),
+          updatedBy: actor,
+        }),
+      });
     }
     return { key: entry.email, ops };
   });
 
   const { ok, failed } = await commitGroups(groups, onProgress);
   if (failed.length === 0) {
-    await updateDoc(logRef, { status: 'reverted', revertedAt: nowIso(), revertedBy: actor });
+    await updateDoc(logRef, { status: 'reverted', revertedAt: nowIso(), revertedBy: actor, revertKept: kept });
   }
-  return { ok: ok.length, failed: failed.length };
+  return { ok: ok.length, failed: failed.length, kept };
 }

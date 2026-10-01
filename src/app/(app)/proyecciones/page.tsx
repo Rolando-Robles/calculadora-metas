@@ -20,12 +20,14 @@ import type {
   QualityMultiplier,
   GrowthMultiplier,
   ProductType,
+  UserGoalConfig,
 } from '@/lib/types';
 import { CATEGORY_LABELS, PRODUCTS } from '@/lib/types';
 import { Sparkles, Target, TrendingUp, Zap, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserGoals } from '@/lib/firestore-service';
+import { currentPeriod } from '@/lib/admin-utils';
 import { useToast } from '@/hooks/use-toast';
 
 const formatCurrency = (value: number) => {
@@ -56,41 +58,27 @@ export default function ProyeccionesPage() {
   const { toast } = useToast();
   const [targetBonus, setTargetBonus] = useState<number>(0);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
-  const [userGoal, setUserGoal] = useState<any>(null);
+  const [userGoal, setUserGoal] = useState<UserGoalConfig | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Cargar configuraciones dinámicas desde Firestore
   const { goalLevels, qualityMults, growthMults, renewalMults, loading: configLoading } = useIncentiveConfig();
 
+  // Producto de la meta del periodo, o el del perfil si la meta no lo trae (igual que en la calculadora).
+  const userProduct = (userGoal?.product ?? userProfile?.product) as ProductType | undefined;
+
   useEffect(() => {
     const loadUserGoal = async () => {
-      if (!user) {
-        console.log('❌ No user logged in');
-        return;
-      }
+      if (!user) return;
 
       try {
         setLoading(true);
-        console.log('📧 Buscando metas para:', user.email);
-
         const goals = await getUserGoals(user.email || '');
-        console.log('📋 Metas encontradas:', goals);
-
-        const currentPeriod = new Date().toISOString().slice(0, 7);
-        console.log('📅 Periodo actual:', currentPeriod);
-
-        const currentGoal = goals.find(g => g.period === currentPeriod);
-        console.log('🎯 Meta actual:', currentGoal);
-
-        if (currentGoal) {
-          console.log('✅ Meta cargada correctamente');
-        } else {
-          console.log('⚠️ No se encontró meta para el periodo actual');
-        }
-
-        setUserGoal(currentGoal || null);
+        // Mes en hora local, igual que el panel de admin al guardar la meta.
+        const period = currentPeriod();
+        setUserGoal(goals.find(g => g.period === period) || null);
       } catch (error) {
-        console.error('❌ Error cargando meta del usuario:', error);
+        console.error('Error cargando meta del usuario:', error);
       } finally {
         setLoading(false);
       }
@@ -116,7 +104,7 @@ export default function ProyeccionesPage() {
     const newScenarios: Scenario[] = [];
     const userCategory = userGoal.category || 'G4';
     const applicableGrowthMults = getApplicableGrowthMultipliers(
-      userGoal.product as ProductType | undefined,
+      userProduct,
       growthMults,
       renewalMults
     );
@@ -279,7 +267,7 @@ export default function ProyeccionesPage() {
     );
   }
 
-  const growthMetricLabels = getGrowthMetricLabels(userGoal?.product as ProductType | undefined);
+  const growthMetricLabels = getGrowthMetricLabels(userProduct);
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -324,11 +312,11 @@ export default function ProyeccionesPage() {
                         {CATEGORY_LABELS[userGoal.category as UserCategory]}
                       </Badge>
                     </div>
-                    {userGoal.product && (
+                    {userProduct && (
                       <div className="text-right">
                         <p className="text-sm text-muted-foreground">Producto</p>
                         <Badge variant="outline" className="text-sm">
-                          {PRODUCTS.find(p => p.value === userGoal.product)?.label || userGoal.product}
+                          {PRODUCTS.find(p => p.value === userProduct)?.label || userProduct}
                         </Badge>
                       </div>
                     )}
