@@ -2,9 +2,7 @@ import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  // El proyecto no tiene ESLint configurado; los tipos sí se validan en el build.
   eslint: {
     ignoreDuringBuilds: true,
   },
