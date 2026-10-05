@@ -1,226 +1,213 @@
-# Carga de metas: guía técnica
+# Carga de metas
 
-Este documento explica de punta a punta cómo una meta mensual llega desde el administrador hasta la pantalla del vendedor. Es la parte del sistema con más reglas y con más historia, así que conviene leerlo antes de tocar `src/lib/admin-service.ts` o cualquier archivo de `src/components/admin/`.
+Este documento explica cómo se asignan las metas mensuales a los vendedores y cómo llegan a la calculadora. Es la parte del sistema con más lógica, así que conviene leerlo antes de modificar `src/lib/admin-service.ts`, `src/lib/import-parser.ts` o los componentes de `src/components/admin/`.
 
-## Resumen
+## Resumen del flujo
 
-- **Una meta = un documento** en `userGoals` por cada par *(correo, periodo `YYYY-MM`)*.
-- **La llave de todo es el correo en minúsculas** (`normalizeEmail`). Es el ID del perfil (`users/{correo}`) y el campo `userEmail` de cada meta. No se usa el `uid` de Firebase para relacionar datos.
-- El admin escribe metas de **dos formas**, y ambas terminan en la misma función, `saveVendorChanges()` de `src/lib/admin-service.ts`:
-  1. **Tabla**: *Admin → Metas* (`GoalsManager`). Edición en línea y acciones masivas.
-  2. **Archivo**: *Admin → Importar* (`ImportWizard`), con CSV o XLSX, vista previa y opción de revertir.
-- El vendedor **solo lee**: `getUserGoals(correo)` trae todas sus metas y la pantalla se queda con la del mes actual.
-- Un periodo **cerrado** (`periods/{YYYY-MM}.locked = true`) bloquea, desde las reglas de Firestore, cualquier escritura de metas de ese mes.
+1. El administrador elige un periodo y asigna metas por una de dos vías: editando la tabla de la pestaña Metas o subiendo un archivo en la pestaña Importar.
+2. Las dos vías arman una lista de cambios por vendedor (`VendorChange`) y la escriben con la misma función, `saveVendorChanges()` en `src/lib/admin-service.ts`.
+3. Cada meta queda guardada como un documento de la colección `userGoals`, con el correo del vendedor y el periodo.
+4. Cuando el vendedor abre la calculadora o las proyecciones, `getUserGoals()` (`src/lib/firestore-service.ts`) trae sus metas y la pantalla usa la del mes en curso.
 
-```mermaid
-flowchart LR
-  subgraph Admin["/admin (solo rol admin)"]
-    T["Pestaña Metas<br/>GoalsManager + VendorGoalsTable"]
-    I["Pestaña Importar<br/>ImportWizard"]
-    H["Historial<br/>ImportHistory"]
-  end
-  P["import-parser.ts<br/>readSpreadsheet → autoMapColumns → buildImportPlan"]
-  S["admin-service.ts<br/>saveVendorChanges → commitGroups (lotes ≤450)"]
-  X["admin-service.ts<br/>executeImport / revertImport"]
-  FS[("Firestore<br/>users · userGoals · periods · imports")]
-  V["/originadores y /proyecciones<br/>getUserGoals(correo)"]
+El correo en minúsculas es la llave que une todo: es el ID del perfil del vendedor y el valor del campo `userEmail` de cada una de sus metas. Todas las funciones lo normalizan con `normalizeEmail()` (`src/lib/admin-utils.ts`).
 
-  T -- "Guardar cambios" --> S
-  I --> P --> X --> S
-  H -- "Revertir" --> X
-  S --> FS
-  X --> FS
-  FS -- "lectura (reglas: solo su correo)" --> V
-```
+## Datos
 
-## Modelo de datos en Firestore
+### `users/{correo}`
 
-### `users/{correo}`: perfil del vendedor o admin
+Perfil del vendedor o administrador.
 
-| Campo | Tipo | Notas |
-|---|---|---|
-| `email` | string | Igual al ID del documento, en minúsculas. |
-| `role` | `'admin' \| 'vendedor'` | Solo se cambia desde la consola de Firebase u otro admin. |
-| `name` | string | Viene del archivo de importación o de Google al iniciar sesión. |
-| `category` | `'G1'…'G4'` | Categoría vigente (ver tabla de categorías abajo). |
-| `product` | `ProductType` | Producto vigente. |
-| `region`, `manager` | string | Solo para filtrar en el admin. `manager` se guarda en minúsculas si es un correo. |
-| `status` | `'activo' \| 'baja'` | Se escribe `'activo'` al crear. **No hay UI para dar de baja** (ver pendientes). |
-| `uid` | string | Se llena la primera vez que la persona inicia sesión con Google. |
-| `createdAt`, `updatedAt`, `lastLoginAt` | ISO string | `lastLoginAt` se refresca como máximo cada 12 h. |
-
-### `userGoals/{goalDocId}`: meta de un vendedor en un periodo
-
-| Campo | Tipo | Notas |
-|---|---|---|
-| `userEmail` | string | Correo en minúsculas. Es lo que filtran las reglas y `getUserGoals`. |
-| `period` | `YYYY-MM` | |
-| `monthlyGoal` | number | Meta de colocación en MXN (entero). |
-| `category` | `'G1'…'G4'` | **Foto** de la categoría en ese periodo. Obligatoria. |
-| `product` | `ProductType` | Foto del producto en ese periodo (opcional). |
-| `updatedAt`, `updatedBy` | string | Fecha ISO y correo del admin que escribió. |
-| `migratedAt` | string | Solo en metas movidas por la consolidación de datos anteriores. |
-
-El ID del documento sale de `goalDocId(correo, periodo)` en `src/lib/admin-utils.ts`:
-
-```
-juan.perez@avivacredito.com + 2026-10  →  juan_perez_at_avivacredito_com-2026-10
-```
-
-Este formato es histórico y se mantiene para no duplicar documentos ya existentes. **No lo cambies** sin una migración.
-
-> **Por qué la meta guarda categoría y producto.** La meta funciona como una foto del periodo. Si un vendedor sube de categoría en noviembre, su meta de octubre conserva la categoría de octubre. La calculadora usa `goal.category` por encima de la del perfil.
-
-### `periods/{YYYY-MM}`: cierre de periodo
-
-`{ locked: boolean, lockedAt, lockedBy, reopenedAt, reopenedBy }`. Si `locked == true`, las reglas rechazan crear, editar o borrar metas de ese periodo, y eso incluye importar y revertir.
-
-### `imports/{autoId}` y `imports/{id}/chunks/{0000…}`: historial de importaciones
-
-- Documento principal: `fileName`, `period`, `createdAt`, `createdBy`, `status` (`running | completed | partial | failed | reverted`), `totalRows`, `counts {new, update, unchanged, error}`, `applied`, `failed`, `finishedAt`, `revertedAt`, `revertedBy`, `revertKept` y `tracksAfter`.
-- Subcolección `chunks`: cada documento guarda `entries`, con hasta 300 `RevertEntry`. Cada entrada tiene el "antes" (`profileBefore`, `goalBefore`) y el "después" (`profileAfter`, `goalAfter`) de un vendedor que tocó la importación. Con eso se revierte.
-- `tracksAfter: true` indica que la importación guardó el "después". Las importaciones hechas antes de este cambio no lo tienen (ver [Revertir](#revertir)).
-
-### `config/incentives`: esquema de incentivos
-
-`goalAchievementLevels`, `qualityMultipliers`, `growthMultipliers`, `renewalMultipliers`, `updatedAt`, `updatedBy`. Se edita en *Admin → Esquema de incentivos*. Si el documento no existe, se usan los valores por defecto de `src/lib/incentives-config.ts`.
-
-### Catálogos (`src/lib/types.ts`)
-
-| Código | Etiqueta visible | Nota |
-|---|---|---|
-| `G1` | Formación | |
-| `G2` | Territorio | |
-| `G3` | Consolidado | |
-| `G4` | Élite | |
-| `G0` | G0 | Ya no se puede seleccionar; se conserva por datos antiguos y por las llaves de `bonusPercentages`. |
-
-Productos: `aviva_contigo`, `aviva_tu_negocio` y `aviva_tu_compra` usan la tabla de **Renovaciones** (`RENEWAL_RATE_PRODUCTS`). `casa_marchand` y `construrama` usan la de **Crecimiento**.
-
-## Vía 1: tabla de metas (Admin → Metas)
-
-| Archivo | Responsabilidad |
+| Campo | Descripción |
 |---|---|
-| `src/app/(app)/admin/page.tsx` | Pestañas. Comparte el periodo entre Metas e Importar. Avisa antes de salir si hay cambios sin guardar. |
-| `src/components/admin/GoalsManager.tsx` | **Cerebro de la pestaña**: carga, filtros, cambios pendientes, guardado, exportación y cierre de periodo. |
-| `src/components/admin/VendorGoalsTable.tsx` | Tabla virtualizada (`@tanstack/react-virtual`) con edición en línea. Enter baja a la siguiente fila. |
-| `src/components/admin/BulkActionsBar.tsx` | Acciones sobre los seleccionados: fijar meta, ajustar ±%, categoría, producto, quitar meta. |
-| `src/components/admin/PeriodPicker.tsx` | Selector de mes. |
-| `src/components/admin/LegacyDataBanner.tsx` | Aviso para consolidar datos de formato anterior (ver más abajo). |
+| `email` | Correo en minúsculas; coincide con el ID del documento. |
+| `role` | `vendedor` o `admin`. |
+| `name` | Nombre. Viene del archivo de importación o de la cuenta de Google. |
+| `category` | Categoría actual (`G1` a `G4`). |
+| `product` | Producto actual (`aviva_contigo`, `aviva_tu_negocio`, `aviva_tu_compra`, `casa_marchand` o `construrama`). |
+| `region`, `manager` | Datos de organización; se usan para filtrar en el panel de administración. |
+| `status` | Se guarda como `activo` al crear el perfil. |
+| `uid` | ID de Firebase Authentication; se llena la primera vez que la persona inicia sesión. |
+| `createdAt`, `updatedAt`, `lastLoginAt` | Fechas en formato ISO. |
 
-**Carga.** `loadVendors()` lee **toda** la colección `users`, agrupa por correo y fusiona duplicados (`profile-merge.ts`). Luego `loadGoalsForPeriod()` trae las metas del periodo y las del anterior, que se muestran como referencia, y `getPeriodLock()` dice si el mes está cerrado. Los admins no aparecen en la lista.
+La categoría y el producto del perfil son los valores vigentes del vendedor. Se usan como valor por defecto cuando se le asigna una meta nueva.
 
-**Edición.** Nada se escribe al editar. Cada cambio vive en el estado `pending` (`{ [correo]: { goal?, category?, product? } }`). Si un valor regresa a lo guardado, se descarta del pendiente. Una meta sin categoría queda marcada como inválida y no se guarda.
+### `userGoals/{id}`
 
-**Guardado.** `handleSave()` convierte los pendientes en `VendorChange[]` y llama a `saveVendorChanges(changes, period, actor)`:
+Meta de un vendedor en un periodo.
 
-1. `opsForChange()` arma, por vendedor, un `set` (con merge) del perfil si cambió categoría o producto y un `set` o `delete` de la meta.
-2. `commitGroups()` agrupa las operaciones en lotes de hasta 450 (Firestore permite 500) **sin partir nunca las operaciones de un mismo vendedor** entre lotes.
-3. Si un lote falla, esos vendedores siguen como pendientes y el toast muestra el error (normalmente "periodo cerrado" o "sin rol admin").
+| Campo | Descripción |
+|---|---|
+| `userEmail` | Correo del vendedor en minúsculas. |
+| `period` | Periodo en formato `YYYY-MM`. |
+| `monthlyGoal` | Meta de colocación en pesos (entero). |
+| `category` | Categoría del vendedor en ese periodo. Es obligatoria. |
+| `product` | Producto del vendedor en ese periodo. |
+| `updatedAt`, `updatedBy` | Fecha y correo del administrador que hizo el último cambio. |
 
-> **Ojo:** cambiar categoría o producto en la tabla actualiza el **perfil** (`users/{correo}`), es decir, el valor por defecto para periodos futuros, y además la foto de la meta del **periodo abierto** si ya tenía meta. Las metas de otros periodos no se tocan.
+El ID del documento se arma con `goalDocId(correo, periodo)`: el correo cambiando `@` por `_at_` y los puntos por guiones bajos, seguido del periodo. Por ejemplo, la meta de `juan.perez@avivacredito.com` en octubre de 2026 es `juan_perez_at_avivacredito_com-2026-10`. Cambiar este formato duplicaría las metas existentes.
 
-**Atajos.** "Completar N sin meta con su meta de <mes anterior>" copia la meta previa a quien no tiene una. "Exportar" descarga un CSV con las mismas columnas que acepta la importación, para el ciclo exportar → editar en Excel → importar.
+La meta guarda la categoría y el producto que tenía el vendedor en ese periodo. Así, si un vendedor sube de categoría en noviembre, su meta de octubre conserva la categoría de octubre. La calculadora usa la categoría y el producto de la meta antes que los del perfil.
 
-**Cierre de periodo.** "Cerrar periodo" escribe `periods/{p}.locked = true`. A partir de ahí la tabla queda en solo lectura y las reglas bloquean escrituras aunque alguien intente hacerlas por otra vía.
+### `periods/{YYYY-MM}`
 
-## Vía 2: importación de archivo (Admin → Importar)
+Estado de cierre del periodo: `locked`, `lockedAt`, `lockedBy`, `reopenedAt`, `reopenedBy`. Si `locked` es `true`, las reglas de Firestore rechazan cualquier escritura de metas de ese periodo, incluidas las que hacen la importación y la reversión.
 
-Componentes: `src/components/admin/ImportWizard.tsx` (UI por pasos) y `src/components/admin/ImportHistory.tsx` (historial y revertir). La lógica pura vive en `src/lib/import-parser.ts`, que no tiene dependencias de Firebase y se puede probar de forma aislada.
+### `imports/{id}`
+
+Registro de cada importación: `fileName`, `period`, `createdAt`, `createdBy`, `status`, `totalRows`, `counts` (filas nuevas, con cambios, sin cambios y con error), `applied`, `failed` y, si se revirtió, `revertedAt`, `revertedBy` y `revertKept`.
+
+El campo `status` puede ser `running` (en curso), `completed`, `partial` (algunos vendedores fallaron), `failed` o `reverted`.
+
+La subcolección `imports/{id}/chunks` guarda, en bloques de hasta 300, una entrada (`RevertEntry`) por cada vendedor que la importación modificó. Cada entrada tiene el valor anterior (`profileBefore`, `goalBefore`) y el valor que escribió la importación (`profileAfter`, `goalAfter`). Con esa información se revierte.
+
+## Carga desde la tabla (pestaña Metas)
+
+Componentes:
+
+- `src/app/(app)/admin/page.tsx`: contiene las pestañas y comparte el periodo seleccionado entre Metas e Importar. Si hay cambios sin guardar, avisa antes de cerrar la página.
+- `src/components/admin/GoalsManager.tsx`: concentra la lógica de la pestaña: carga, filtros, cambios pendientes, guardado, exportación y cierre de periodo.
+- `src/components/admin/VendorGoalsTable.tsx`: dibuja la tabla. Solo renderiza las filas visibles, para funcionar con miles de vendedores. Al presionar Enter en una meta, el cursor baja a la siguiente fila.
+- `src/components/admin/BulkActionsBar.tsx`: acciones sobre los vendedores seleccionados.
+- `src/components/admin/PeriodPicker.tsx`: selector de mes.
+
+### Carga
+
+Al abrir la pestaña, `loadVendors()` lee toda la colección `users`, agrupa los documentos por correo y arma un perfil por vendedor. Después `loadGoalsForPeriod()` trae las metas del periodo seleccionado y las del mes anterior, que se muestran como referencia, y `getPeriodLock()` indica si el periodo está cerrado. Los administradores no aparecen en la tabla.
+
+Las tarjetas de la parte superior (vendedores, con meta, sin meta, sin categoría, sin producto, nunca han entrado) cuentan los vendedores en cada situación y sirven como filtro. También se puede buscar por nombre, correo, región o gerente, y filtrar por producto, categoría, región y gerente.
+
+### Edición
+
+Editar una celda no escribe nada en la base. Cada cambio se guarda en memoria, en el estado `pending` de `GoalsManager`, con la forma `{ [correo]: { goal?, category?, product? } }`. Si un valor vuelve a quedar igual al guardado, se elimina de los pendientes. Una meta necesita categoría; si el vendedor no tiene, la fila se marca y ese cambio no se guarda.
+
+Acciones disponibles sobre los seleccionados: fijar una meta, ajustar la meta en un porcentaje (tomando como base la meta actual o la del mes anterior), asignar categoría, asignar producto y quitar la meta. Además, el botón "Completar sin meta" copia la meta del mes anterior a los vendedores que todavía no tienen una.
+
+### Guardado
+
+El botón "Guardar cambios" ejecuta `handleSave()`, que convierte los pendientes en una lista de `VendorChange` y llama a `saveVendorChanges(cambios, periodo, administrador)`:
+
+1. `opsForChange()` arma las operaciones de cada vendedor: actualizar su perfil si cambió la categoría o el producto, y crear, actualizar o borrar su meta del periodo.
+2. `commitGroups()` escribe las operaciones en lotes de hasta 450 (Firestore permite 500 por lote). Las operaciones de un mismo vendedor nunca se reparten entre dos lotes, así que cada vendedor queda guardado completo o sin cambios.
+3. Si un lote falla, sus vendedores siguen como pendientes y un mensaje muestra el error. Lo más común es que el periodo esté cerrado o que la sesión no tenga rol de administrador.
+
+Cambiar la categoría o el producto en la tabla actualiza el perfil del vendedor, y con eso el valor por defecto para periodos futuros. Si el vendedor ya tenía meta en el periodo abierto, también se actualiza la categoría o el producto guardados en esa meta. Las metas de otros periodos no cambian.
+
+### Exportación
+
+"Exportar" descarga un CSV con las filas visibles y las mismas columnas que acepta la importación. Así se puede exportar, editar en Excel y volver a importar el mismo archivo.
+
+## Carga desde archivo (pestaña Importar)
+
+La interfaz está en `src/components/admin/ImportWizard.tsx`, y el historial con la opción de revertir en `src/components/admin/ImportHistory.tsx`. La lógica de lectura y validación está en `src/lib/import-parser.ts`. Son funciones puras, sin acceso a Firebase, que se pueden probar por separado.
+
+### Formato del archivo
+
+Se aceptan archivos `.csv`, `.txt` y `.xlsx`. De un Excel solo se lee la primera hoja. En un CSV se detecta solo el separador (coma, punto y coma o tabulador).
+
+| Columna | Obligatoria | Valores aceptados |
+|---|---|---|
+| Correo | Sí | Correo `@avivacredito.com`, sin repetirse en el archivo. |
+| Meta mensual | No | `200000`, `200,000` o `$200,000`. Debe ser mayor a 0; se redondea a pesos. |
+| Categoría | No | `formacion`, `territorio`, `consolidado`, `elite` o `G1` a `G4`, sin importar mayúsculas ni acentos. |
+| Producto | No | El código (`aviva_contigo`) o el nombre (`Aviva Contigo`). |
+| Nombre | No | Texto libre. |
+| Región | No | Texto libre. |
+| Gerente | No | Texto libre o correo. |
+
+Los encabezados se reconocen por nombre (por ejemplo, "Correo", "Email" o "E-mail" son la misma columna; los alias están en `IMPORT_FIELDS`). El administrador puede corregir la asignación de columnas antes de continuar. La pantalla ofrece una plantilla de ejemplo para descargar.
 
 ### Pasos
 
-1. **Archivo y periodo.** `readSpreadsheet(file)` lee `.xlsx` con `read-excel-file`, tomando solo la primera hoja, o `.csv`/`.txt` con `parseCsv`. Este último detecta el separador (`,`, `;` o tabulador), quita el BOM, ignora la línea `sep=` de Excel y respeta comillas. No se acepta `.xls`.
-2. **Columnas.** `autoMapColumns(headers)` asocia encabezados a campos por coincidencia exacta, sin acentos ni mayúsculas, contra los alias de `IMPORT_FIELDS`. El admin puede corregir el mapeo a mano. Solo `Correo` es obligatoria.
-3. **Vista previa.** `buildImportPlan()` compara cada fila con lo que hay en Firestore y la clasifica como `new`, `update`, `unchanged` o `error`:
-   - El correo tiene que ser `@avivacredito.com` y no repetirse en el archivo.
-   - La categoría acepta `formacion | territorio | consolidado | elite` o `G1`–`G4`. El producto acepta el código o el nombre.
-   - La meta se interpreta con `parseAmount` (`200000`, `200,000` o `$200,000`), debe ser mayor a 0 y se redondea.
-   - **Una meta requiere categoría**, ya sea la del archivo o la que el vendedor ya tenga en su perfil.
-   - **Una celda vacía no modifica nada.** La importación nunca borra metas: los vendedores que no vienen en el archivo conservan la suya (`notInFile`).
-   - Se agrega una advertencia si la meta cambia ±50 % o más, o si la fila es de un admin (su rol nunca se modifica).
-4. **Ejecución.** `executeImport()`:
-   1. Crea `imports/{id}` con `status: 'running'`.
-   2. **Primero** guarda el "antes" en `chunks` para poder revertir aunque la carga se interrumpa.
-   3. Aplica los cambios con el mismo `saveVendorChanges()` de la tabla.
-   4. Deja el estado en `completed`, `partial` o `failed`.
+1. Lectura: `readSpreadsheet()` convierte el archivo en una matriz de texto.
+2. Columnas: `autoMapColumns()` propone qué columna corresponde a cada dato y el administrador lo confirma.
+3. Vista previa: `buildImportPlan()` compara cada fila con lo que ya hay en Firestore y la clasifica como nueva, con cambios, sin cambios o con error. Para cada fila muestra el valor anterior y el nuevo de cada dato que cambia.
+4. Aplicación: `executeImport()` crea el registro en `imports` con estado `running`, guarda primero las entradas para revertir en `chunks`, aplica los cambios con `saveVendorChanges()` y al final deja el estado en `completed`, `partial` o `failed`.
 
-   Las filas con error se omiten y las demás se aplican. Volver a importar el mismo archivo es seguro: lo que ya se aplicó aparece como "sin cambios".
+### Reglas de la importación
 
-### Revertir
+- Una celda vacía no modifica el dato existente. Para cambiar solo las metas basta un archivo con Correo y Meta mensual.
+- La importación nunca borra metas. Los vendedores que no vienen en el archivo conservan la suya; la vista previa indica cuántos son.
+- Una meta necesita categoría: la del archivo o, si no viene, la que el vendedor ya tiene en su perfil.
+- Si un vendedor no existe, se crea su perfil con rol de vendedor.
+- El rol de un administrador incluido en el archivo nunca se modifica.
+- La vista previa advierte cuando una meta cambia 50 % o más respecto a la actual.
+- Las filas con error no se importan y se pueden descargar en un CSV para corregirlas; el resto sí se aplica.
+- Importar dos veces el mismo archivo no duplica nada: la segunda vez las filas ya aplicadas aparecen sin cambios.
 
-*Admin → Importar → Historial → Revertir* llama a `revertImport()` (`admin-service.ts`). Esta función lee los `chunks`, el perfil actual y las metas actuales del periodo, y para cada vendedor deja que `planRevertEntry()` (`import-parser.ts`, función pura) decida qué hacer:
+## Revertir una importación
 
-| Estado actual del campo o de la meta | Qué hace |
-|---|---|
-| Sigue con el valor que dejó la importación (el "después") | Lo regresa al "antes". |
-| Ya está en el "antes" (p. ej. la importación se interrumpió antes de aplicarlo) | Nada. |
-| Tiene otro valor: alguien lo cambió después, a mano o con otra importación | **Lo conserva** y lo cuenta en `revertKept`. El toast avisa cuántos vendedores conservaron cambios. |
+En el historial de la pestaña Importar, el botón "Revertir" ejecuta `revertImport()` (`src/lib/admin-service.ts`). Esta función lee las entradas guardadas en `chunks`, el perfil actual de cada vendedor y sus metas actuales del periodo, y para cada vendedor decide qué hacer con `planRevertEntry()` (`src/lib/import-parser.ts`):
 
-Si un perfil lo **creó** la importación, se borra solo si la persona nunca ha iniciado sesión y nadie lo editó después.
+- Si el dato sigue con el valor que dejó la importación, vuelve a su valor anterior.
+- Si el dato ya tiene su valor anterior, no se toca.
+- Si el dato tiene otro valor, porque alguien lo cambió después a mano o con otra importación, se conserva. Al terminar, un mensaje indica cuántos vendedores conservaron cambios posteriores.
 
-> **Importaciones anteriores a este cambio** (sin `tracksAfter`): sus entradas no tienen el "después", así que revertirlas restaura todo, aunque pise ediciones posteriores. El diálogo de confirmación lo advierte en esos casos.
+Los perfiles que la importación creó se borran solo si la persona nunca ha iniciado sesión y nadie los modificó después.
 
-**Importaciones interrumpidas.** Si alguien cierra la pestaña a mitad de una carga, el registro queda en `running`. Después de 15 minutos (`IMPORT_STALE_MS`) el historial la muestra como **Interrumpida** y permite revertirla. Es seguro porque el "antes" se guarda antes de aplicar cualquier cambio.
+Las importaciones guardadas antes de que existiera el campo `profileAfter` no tienen el valor que escribieron. Al revertirlas se restaura todo a su valor anterior, aunque se pierdan cambios posteriores, y el diálogo de confirmación lo indica. Esas importaciones se reconocen porque su registro no tiene `tracksAfter: true`.
 
-### Agregar una columna nueva a la importación
+Si alguien cierra la pestaña a mitad de una importación, el registro se queda en estado `running`. Pasados 15 minutos (`IMPORT_STALE_MS`), el historial la muestra como "Interrumpida" y permite revertirla. Es seguro porque los valores anteriores se guardan antes de aplicar cualquier cambio. También se puede terminar volviendo a importar el mismo archivo.
 
-1. Agrega el campo a `VendorProfile` (`types.ts`) y a `ProfileFields` (`admin-service.ts`).
-2. Agrégalo a `IMPORT_FIELDS` y a `PROFILE_FIELD_LABELS` en `import-parser.ts`, y a `incoming` dentro de `buildImportPlan`.
-3. Agrégalo a la plantilla (`downloadTemplate` en `ImportWizard.tsx`) y a la exportación (`handleExport` en `GoalsManager.tsx`) para no romper el ciclo exportar → importar.
-4. Si el vendedor necesita leerlo, agrégalo a `MERGED_FIELDS` (`profile-merge.ts`) y a `UserProfile` (`AuthContext.tsx`).
+## Cierre de periodo
 
-## Lectura: lo que ve el vendedor
+El botón "Cerrar periodo" de la pestaña Metas llama a `setPeriodLock()`, que marca `periods/{YYYY-MM}` como cerrado. Desde ese momento la tabla queda en solo lectura, la importación no acepta archivos para ese periodo y las reglas de Firestore rechazan cualquier escritura de sus metas. "Reabrir periodo" revierte el cierre. Para cerrar o reabrir, no debe haber cambios pendientes.
 
-1. **Login** (`src/contexts/AuthContext.tsx`): Google sign-in. Se aceptan correos `@avivacredito.com`; otros dominios solo entran si su perfil ya existe con `role: 'admin'`. Si `users/{correo}` no existe, se crea como `vendedor` sin categoría ni producto. Si lo creó el admin, se le liga el `uid`.
-2. **Calculadora** (`src/app/(app)/originadores/page.tsx`): `getUserGoals(userProfile.email)` (`src/lib/firestore-service.ts`) trae todas las metas del correo y se queda con la de `period === currentPeriod()`. El mes se calcula en hora local, igual que en el admin.
-   - Si la encuentra, usa `monthlyGoal`, `category` y `product` de la meta. Si la meta no trae producto, usa el del perfil. El producto decide si aplica la tabla de Crecimiento o la de Renovaciones.
-   - Si no, muestra "No tienes una meta asignada", deja la meta en $0 y usa la categoría y el producto del perfil.
-   - La **colocación la escribe el vendedor a mano**. El sistema no conoce la colocación real.
-   - Nada de lo que se calcula aquí se guarda. Colocación, categoría y multiplicadores se recuerdan solo en `localStorage` del navegador.
-3. **Proyecciones** (`src/app/(app)/proyecciones/page.tsx`): misma lectura y misma regla para el producto. Si no hay meta del mes, no genera escenarios.
+## Cómo lee la meta el vendedor
 
-Las reglas permiten a un vendedor leer solo las metas donde `userEmail` coincide con su correo verificado.
+En la calculadora (`src/app/(app)/originadores/page.tsx`):
 
-## Reglas de seguridad relevantes (`firestore.rules`)
+1. `getUserGoals(correo)` trae todas las metas del vendedor.
+2. Se toma la del periodo `currentPeriod()`, es decir, el mes en curso en hora local.
+3. Si existe, se usan su `monthlyGoal`, su `category` y su `product`; si la meta no tiene producto, se usa el del perfil. El producto decide si el tercer multiplicador es de Crecimiento o de Renovaciones.
+4. Si no existe, la pantalla muestra el aviso "No tienes una meta asignada", deja la meta en cero y usa la categoría y el producto del perfil.
 
-- `userGoals`: el vendedor lee solo las suyas y solo el admin escribe, siempre que el periodo no esté cerrado (`periodLocked()`).
-- `users`: el vendedor lee su perfil y en su primer login solo puede crearse como `vendedor` sin categoría ni producto. Después solo puede tocar `uid`, `name`, `lastLoginAt` y `updatedAt`.
-- `periods`, `imports`, `config`: solo el admin escribe. `config` y `periods` los lee cualquier usuario autenticado.
-- `isAdmin()` hace `get()` a `users/{correo}` y a `users/{uid}`, y `periodLocked()` a `periods/{p}`. Firestore limita las lecturas de reglas por petición (*batch*), así que **un lote no debe mezclar muchos periodos distintos**. Por eso `consolidateLegacyData()` agrupa por periodo.
+Proyecciones (`src/app/(app)/proyecciones/page.tsx`) lee la meta de la misma forma. Si el vendedor no tiene meta en el mes, no genera escenarios.
 
-Las reglas no se despliegan solas con App Hosting. Ver [FIREBASE_SETUP.md](FIREBASE_SETUP.md#5-reglas-de-seguridad).
+## Reglas de seguridad relacionadas
 
-## Datos de formato anterior (código de transición)
+En `firestore.rules`:
 
-Antes de la versión actual, la importación CSV creaba perfiles con ID `juan_perez` (alias del correo) y el login creaba otro con el `uid`. Además, algunas metas usaban `userId` en lugar de `userEmail`. Un vendedor podía tener 2 o 3 perfiles.
+- `userGoals`: un vendedor solo puede leer las metas cuyo `userEmail` es su propio correo verificado. Solo los administradores escriben, y solo en periodos abiertos.
+- `users`: cada persona lee únicamente su perfil. En su primer inicio de sesión solo puede crearse como vendedor, sin categoría ni producto, y después solo puede actualizar `name`, `uid`, `lastLoginAt` y `updatedAt`. Los administradores leen y escriben todo.
+- `periods` y `config`: los lee cualquier usuario con sesión y solo los escriben administradores.
+- `imports`: solo administradores.
 
-El código actual tolera esos datos y los puede consolidar:
+Cada escritura de una meta hace que las reglas lean el perfil del administrador y el documento del periodo. Firestore limita cuántos documentos distintos pueden leer las reglas en un mismo lote, por eso las escrituras se agrupan por periodo: la tabla y la importación siempre escriben un solo periodo, y la consolidación de datos anteriores procesa un periodo a la vez.
 
-- `src/lib/profile-merge.ts` fusiona los documentos de una misma persona (`mergeProfiles`, `groupUserDocs`, `legacySlugId`).
-- `loadVendors()` construye `idToEmail` y `goalFromDoc()` traduce metas con `userId` a su correo.
-- `AuthContext.loadOwnProfileDocs()` lee `users/{correo}`, `users/{uid}` y `users/{alias}`.
-- `LegacyDataBanner` + `consolidateLegacyData()` dejan un solo `users/{correo}` por persona, mueven las metas a su ID canónico y borran los documentos viejos. Se puede ejecutar varias veces.
-- `firestore.rules` acepta admins por `users/{uid}` además de `users/{correo}`.
+## Perfiles de versiones anteriores
 
-**Cuando el aviso "perfiles duplicados o con formato anterior" ya no aparezca en producción**, todo lo anterior se puede simplificar: quitar el banner, `consolidateLegacyData`, `idToEmail`, el *fallback* por `userId` y las lecturas por `uid` y alias. Hazlo en un PR aparte y verifica primero en la consola de Firestore que no queden perfiles sin correo como ID.
+Versiones anteriores de la importación guardaban el perfil con un ID derivado del correo (por ejemplo `juan_perez`), el inicio de sesión creaba otro con el `uid`, y algunas metas usaban el campo `userId` en lugar de `userEmail`. Un mismo vendedor podía tener dos o tres perfiles.
 
-## Problemas frecuentes
+El código actual reconoce esos datos y los puede unificar:
 
-**"El vendedor dice que no ve su meta"**
+- `src/lib/profile-merge.ts` agrupa los documentos de una misma persona por correo y los combina (`groupUserDocs`, `mergeProfiles`).
+- `loadVendors()` arma una tabla de equivalencias de IDs antiguos a correo, y `goalFromDoc()` la usa para asignar las metas que tienen `userId` a su vendedor.
+- `AuthContext` busca el perfil del usuario por correo, por `uid` y por el ID antiguo.
+- Cuando existen perfiles en formato anterior, la pestaña Metas muestra un aviso (`LegacyDataBanner`) con el botón "Consolidar ahora". Ese botón ejecuta `consolidateLegacyData()`, que deja un solo `users/{correo}` por persona, mueve las metas a su ID correcto y borra los documentos antiguos. Se puede ejecutar varias veces sin problema.
+- `firestore.rules` reconoce como administrador tanto a quien tiene `role: "admin"` en `users/{correo}` como en `users/{uid}`.
 
-1. En Firestore, busca en `userGoals` un documento con `userEmail == <correo en minúsculas>` y `period == <mes actual>`.
-2. Confirma que el vendedor entra con **esa misma** cuenta de Google (se compara contra el correo del token, que debe estar verificado).
-3. Confirma que el periodo es el correcto: el vendedor ve la meta del mes en curso según la hora de su dispositivo.
-4. Si existe la meta pero da "Missing or insufficient permissions", las reglas publicadas no son las de `firestore.rules`.
+Cuando el aviso ya no aparezca en producción, este código de compatibilidad se puede retirar.
 
-**"Al guardar dice Sin permiso"**: el periodo está cerrado o la sesión no tiene `role: 'admin'` en `users/{correo}`.
+## Cómo extender
 
-**"Una importación aparece como 'Interrumpida'"**: alguien cerró la pestaña a mitad de la carga. Puedes revertirla desde el historial, o volver a importar el mismo archivo para terminarla (lo ya aplicado saldrá "sin cambios").
+### Agregar una columna a la importación
 
-## Pendientes y problemas conocidos
+1. Agregar el campo a `VendorProfile` (`src/lib/types.ts`) y a `ProfileFields` (`src/lib/admin-service.ts`).
+2. Agregarlo a `IMPORT_FIELDS` y a `PROFILE_FIELD_LABELS` en `src/lib/import-parser.ts`, y al objeto `incoming` dentro de `buildImportPlan()`.
+3. Agregarlo a la plantilla (`downloadTemplate` en `ImportWizard.tsx`) y a la exportación (`handleExport` en `GoalsManager.tsx`), para que el archivo exportado se pueda volver a importar.
+4. Si el vendedor necesita verlo, agregarlo a los campos que combina `mergeProfiles()` (`MERGED_FIELDS` en `profile-merge.ts`) y a `UserProfile` en `AuthContext.tsx`.
 
-- **Huecos en los niveles por defecto (decisión de negocio).** Los rangos son `[mínimo, máximo)` y un porcentaje que no cae en ningún nivel se paga como el **primero** ("Fuera de juego"). Con los valores por defecto de `incentives-config.ts` quedan huecos en 90–100 %, 109–110 % y 119–120 %; por ejemplo, un cumplimiento de 95 % no paga bono. El editor del esquema ahora lo avisa, pero **no se cambiaron porcentajes**. Alguien de negocio debe confirmar los rangos correctos y ajustarlos en *Admin → Esquema de incentivos*, que es lo que usa producción (`config/incentives`).
-- **No hay baja de vendedores.** El tipo admite `status: 'baja'`, pero ninguna pantalla lo usa ni lo filtra.
-- **Escala.** El admin lee toda la colección `users` en cada carga, y revertir lee además las metas del periodo. Funciona bien con miles de vendedores; con decenas de miles convendría paginar o usar índices por región.
-- **Sin pruebas automatizadas.** `import-parser.ts` (incluido `planRevertEntry`), `admin-utils.ts` e `incentives-config.ts` son funciones puras y son el mejor lugar para empezar.
+### Agregar un producto
+
+Agregarlo a `ProductType` y a `PRODUCTS` en `src/lib/types.ts`. Si su tercer multiplicador es de Renovaciones, agregarlo también a `RENEWAL_RATE_PRODUCTS`. La importación lo reconoce automáticamente por su código y por su nombre.
+
+### Agregar una categoría
+
+Agregarla a `UserCategory`, `CATEGORY_LABELS` y `CATEGORIES` en `src/lib/types.ts`, y a `bonusPercentages` en el tipo `GoalAchievementConfig` y en los niveles por defecto de `src/lib/incentives-config.ts`. El editor del esquema y las tablas de la calculadora generan sus columnas a partir de `CATEGORIES`. Si el esquema ya está guardado en Firestore, hay que capturar los porcentajes de la nueva categoría desde el editor.
+
+## Diagnóstico: un vendedor no ve su meta
+
+1. En la consola de Firebase, buscar en `userGoals` un documento con `userEmail` igual al correo del vendedor en minúsculas y `period` igual al mes en curso.
+2. Confirmar que el vendedor inicia sesión con esa misma cuenta de Google. La comparación se hace contra el correo de la sesión, que debe estar verificado.
+3. Si la meta existe y aparece el error "Missing or insufficient permissions", revisar que las reglas publicadas en Firestore coincidan con `firestore.rules`.
+4. Si el problema es al guardar desde el panel, revisar que el periodo no esté cerrado y que el administrador tenga `role: "admin"` en `users/{correo}`.
